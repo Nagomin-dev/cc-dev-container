@@ -31,7 +31,7 @@ iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 
 # Create ipset with CIDR support
-if ! ipset create allowed-domains hash:net; then
+if ! ipset create allowed-domains hash:net -exist; then
     echo "ERROR: Failed to create ipset 'allowed-domains'"
     exit 1
 fi
@@ -74,7 +74,10 @@ for domain in \
     if [ -z "$ips" ] || [ "$ips" = ";; connection timed out; no servers could be reached" ]; then
         echo "ERROR: Failed to resolve $domain - DNS may be unavailable"
         # Try alternate DNS servers
-        ips=$(dig +short A "$domain" @8.8.8.8 2>/dev/null || dig +short A "$domain" @1.1.1.1 2>/dev/null)
+        ips=$(dig +short A "$domain" @8.8.8.8 2>/dev/null)
+        if [ -z "$ips" ]; then
+            ips=$(dig +short A "$domain" @1.1.1.1 2>/dev/null)
+        fi
         if [ -z "$ips" ]; then
             echo "ERROR: Failed to resolve $domain even with alternate DNS servers"
             exit 1
