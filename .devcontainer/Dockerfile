@@ -19,7 +19,12 @@ RUN apt update && apt install -y less \
   iproute2 \
   dnsutils \
   aggregate \
-  jq
+  jq \
+  python3 \
+  python3-pip
+
+# Install pre-commit
+RUN pip3 install --break-system-packages pre-commit
 
 # Ensure default node user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \
@@ -53,6 +58,16 @@ USER node
 # Install global packages
 ENV NPM_CONFIG_PREFIX=/usr/local/share/npm-global
 ENV PATH=$PATH:/usr/local/share/npm-global/bin
+
+# Install Python pip for pre-commit
+USER root
+RUN apt-get update && apt-get install -y python3-pip python3-venv && \
+    rm -rf /var/lib/apt/lists/*
+USER node
+
+# Install pre-commit
+RUN pip3 install --user pre-commit
+ENV PATH=$PATH:/home/node/.local/bin
 
 # Set the default shell to zsh rather than sh
 ENV SHELL=/bin/zsh

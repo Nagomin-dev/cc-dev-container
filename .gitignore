@@ -20,3 +20,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Git hooks (local only)
+.git/hooks/
+
+# Pre-commit
+.pre-commit-config.yaml.bak
