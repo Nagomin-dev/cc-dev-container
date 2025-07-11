@@ -83,9 +83,6 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 # Install Claude
 RUN npm install -g @anthropic-ai/claude-code
 
-# Install textlint globally for AI writing detection
-RUN npm install -g textlint textlint-rule-preset-ai-writing
-
 # Copy and set up firewall script
 COPY init-firewall.sh /usr/local/bin/
 USER root
