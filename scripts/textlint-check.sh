@@ -15,6 +15,9 @@ NC='\033[0m' # No Color
 # ディレクトリをワークスペースに変更
 cd /workspace
 
+# RESULT変数を初期化
+RESULT=0
+
 # パラメータ処理
 TARGET_FILES="${1:-**/*.md}"
 
@@ -28,9 +31,9 @@ fi
 
 # textlintを実行
 if [ "$TARGET_FILES" = "**/*.md" ]; then
-    # すべてのMarkdownファイルをチェック
+    # すべてのMarkdownファイルをチェック (findを使用してglob展開の問題を回避)
     echo -e "${YELLOW}すべてのMarkdownファイルをチェックしています...${NC}"
-    npx textlint "${TARGET_FILES}" --ignore-path .gitignore || RESULT=$?
+    find . -name "*.md" -type f ! -path "./node_modules/*" ! -path "./.git/*" -print0 | xargs -0 npx textlint --ignore-path .gitignore || RESULT=$?
 else
     # 特定のファイルをチェック
     echo -e "${YELLOW}ファイル: $TARGET_FILES をチェックしています...${NC}"

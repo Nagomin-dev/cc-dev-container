@@ -16,6 +16,9 @@ NC='\033[0m' # No Color
 # ディレクトリをワークスペースに変更
 cd /workspace
 
+# RESULT変数を初期化
+RESULT=0
+
 # パラメータ処理
 TARGET_FILES="${1:-**/*.md}"
 
@@ -29,23 +32,36 @@ fi
 
 # バックアップディレクトリの作成
 BACKUP_DIR="/workspace/.textlint-backup/$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$BACKUP_DIR"
+if ! mkdir -p "$BACKUP_DIR"; then
+    echo -e "${RED}エラー: バックアップディレクトリを作成できませんでした: $BACKUP_DIR${NC}"
+    exit 1
+fi
 
 # ファイルのバックアップ
 echo -e "${BLUE}変更前のファイルをバックアップしています...${NC}"
 if [ "$TARGET_FILES" = "**/*.md" ]; then
     # すべてのMarkdownファイルをバックアップ
-    find /workspace -name "*.md" -type f ! -path "*/node_modules/*" ! -path "*/.git/*" -exec cp --parents {} "$BACKUP_DIR" \;
+    if ! find /workspace -name "*.md" -type f ! -path "*/node_modules/*" ! -path "*/.git/*" -exec cp --parents {} "$BACKUP_DIR" \; 2>/dev/null; then
+        echo -e "${YELLOW}警告: 一部のファイルのバックアップに失敗しました${NC}"
+    fi
 else
-    # 特定のファイルをバックアップ
-    cp "$TARGET_FILES" "$BACKUP_DIR/"
+    # 特定のファイルをバックアップ (ディレクトリ構造を保持)
+    if [ -f "$TARGET_FILES" ]; then
+        if ! cp --parents "$TARGET_FILES" "$BACKUP_DIR/" 2>/dev/null; then
+            echo -e "${RED}エラー: ファイルのバックアップに失敗しました: $TARGET_FILES${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${RED}エラー: ファイルが見つかりません: $TARGET_FILES${NC}"
+        exit 1
+    fi
 fi
 
 # textlintで自動修正を実行
 echo -e "${YELLOW}AIっぽい文章パターンを修正しています...${NC}"
 if [ "$TARGET_FILES" = "**/*.md" ]; then
-    # すべてのMarkdownファイルを修正
-    npx textlint "${TARGET_FILES}" --fix --ignore-path .gitignore || RESULT=$?
+    # すべてのMarkdownファイルを修正 (findを使用してglob展開の問題を回避)
+    find . -name "*.md" -type f ! -path "./node_modules/*" ! -path "./.git/*" -print0 | xargs -0 npx textlint --fix --ignore-path .gitignore || RESULT=$?
 else
     # 特定のファイルを修正
     npx textlint "$TARGET_FILES" --fix || RESULT=$?
