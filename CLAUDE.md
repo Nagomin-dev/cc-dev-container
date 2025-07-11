@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### ディレクトリ構造
 
-```
+```plaintext
 /workspace/
 ├── .claude/
 │   ├── commands/             # カスタムスラッシュコマンド
@@ -106,7 +106,7 @@ echo $SLACK_WEBHOOK_URL
 
 - **Node.js**: v20
 - **デフォルトシェル**: Zsh (Powerlevel10k theme)
-- **インストール済みツール**: 
+- **インストール済みツール**:
   - git, gh (GitHub CLI)
   - fzf, delta
   - iptables/ipset (ファイアウォール用)
