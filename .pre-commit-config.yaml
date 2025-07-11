@@ -1,0 +1,59 @@
+repos:
+  # Protect branches from direct commits
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: no-commit-to-branch
+        name: Protect branches from direct commits
+        args: ['--branch', 'main', '--branch', 'master', '--branch', 'develop', '--branch', 'staging']
+        always_run: true
+        pass_filenames: false
+        verbose: true
+        
+  # Additional useful hooks for code quality
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: Fix trailing whitespace
+        exclude: '\.(md|txt)$'
+      - id: end-of-file-fixer
+        name: Fix missing newline at end of files
+        exclude: '\.(svg|png|jpg|jpeg|gif)$'
+      - id: check-merge-conflict
+        name: Check for merge conflict markers
+      - id: check-added-large-files
+        name: Prevent large files from being committed
+        args: ['--maxkb=1000']
+      - id: check-case-conflict
+        name: Check for case conflicts in filenames
+      - id: check-json
+        name: Validate JSON files
+      - id: check-yaml
+        name: Validate YAML files
+        args: ['--unsafe'] # Allow custom tags
+      - id: check-toml
+        name: Validate TOML files
+      - id: detect-private-key
+        name: Detect private keys
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+        args: ['--fix=lf']
+
+# Configuration for the no-commit-to-branch hook
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [commit]
+
+# Global exclude patterns
+exclude: |
+  (?x)^(
+    \.git/|
+    \.devcontainer/init-firewall\.sh|
+    node_modules/|
+    \.next/|
+    dist/|
+    build/|
+    coverage/|
+    \.vscode/|
+    \.idea/
+  )
