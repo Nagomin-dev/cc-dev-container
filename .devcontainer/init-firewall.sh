@@ -2,6 +2,12 @@
 set -euo pipefail  # Exit on error, undefined vars, and pipeline failures
 IFS=$'\n\t'       # Stricter word splitting
 
+# Check if jq is available
+if ! command -v jq &> /dev/null; then
+    echo "ERROR: jq is not installed. Please install jq to continue."
+    exit 1
+fi
+
 # Flush existing rules and delete existing ipsets
 iptables -F
 iptables -X
@@ -25,7 +31,10 @@ iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 
 # Create ipset with CIDR support
-ipset create allowed-domains hash:net
+if ! ipset create allowed-domains hash:net -exist; then
+    echo "ERROR: Failed to create ipset 'allowed-domains'"
+    exit 1
+fi
 
 # Fetch GitHub meta information and aggregate + add their IP ranges
 echo "Fetching GitHub IP ranges..."
@@ -35,8 +44,9 @@ if [ -z "$gh_ranges" ]; then
     exit 1
 fi
 
-if ! echo "$gh_ranges" | jq -e '.web and .api and .git' >/dev/null; then
-    echo "ERROR: GitHub API response missing required fields"
+if ! echo "$gh_ranges" | jq -e '.web and .api and .git' >/dev/null 2>&1; then
+    echo "ERROR: GitHub API response missing required fields or invalid JSON"
+    echo "Response: $gh_ranges"
     exit 1
 fi
 
@@ -47,7 +57,9 @@ while read -r cidr; do
         exit 1
     fi
     echo "Adding GitHub range $cidr"
-    ipset add allowed-domains "$cidr"
+    if ! ipset add allowed-domains "$cidr" 2>/dev/null; then
+        echo "WARNING: Failed to add GitHub range $cidr (may already exist)"
+    fi
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
 # Resolve and add other allowed domains
@@ -58,10 +70,18 @@ for domain in \
     "statsig.anthropic.com" \
     "statsig.com"; do
     echo "Resolving $domain..."
-    ips=$(dig +short A "$domain")
-    if [ -z "$ips" ]; then
-        echo "ERROR: Failed to resolve $domain"
-        exit 1
+    ips=$(dig +short A "$domain" 2>/dev/null)
+    if [ -z "$ips" ] || [ "$ips" = ";; connection timed out; no servers could be reached" ]; then
+        echo "ERROR: Failed to resolve $domain - DNS may be unavailable"
+        # Try alternate DNS servers
+        ips=$(dig +short A "$domain" @8.8.8.8 2>/dev/null)
+        if [ -z "$ips" ]; then
+            ips=$(dig +short A "$domain" @1.1.1.1 2>/dev/null)
+        fi
+        if [ -z "$ips" ]; then
+            echo "ERROR: Failed to resolve $domain even with alternate DNS servers"
+            exit 1
+        fi
     fi
     
     while read -r ip; do
@@ -70,7 +90,9 @@ for domain in \
             exit 1
         fi
         echo "Adding $ip for $domain"
-        ipset add allowed-domains "$ip"
+        if ! ipset add allowed-domains "$ip" 2>/dev/null; then
+            echo "WARNING: Failed to add IP $ip for $domain (may already exist)"
+        fi
     done < <(echo "$ips")
 done
 

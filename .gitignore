@@ -26,3 +26,9 @@ Thumbs.db
 
 # Pre-commit
 .pre-commit-config.yaml.bak
+
+# Node modules
+node_modules/
+
+# textlint backup
+.textlint-backup/

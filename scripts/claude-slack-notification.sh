@@ -89,6 +89,8 @@ PAYLOAD=$(jq -n \
 
 # Slackに送信 (HTTPステータスコードとレスポンスボディを別々に取得)
 HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+    --max-time 30 \
+    --connect-timeout 10 \
     -H 'Content-type: application/json' \
     --data "$PAYLOAD" \
     "$WEBHOOK_URL" 2>&1)
