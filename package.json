@@ -2,6 +2,7 @@
   "name": "claude-code-devcontainer",
   "version": "1.0.0",
   "description": "Claude Code Dev Container with textlint integration",
+  "private": true,
   "scripts": {
     "textlint": "textlint",
     "textlint:fix": "textlint --fix",

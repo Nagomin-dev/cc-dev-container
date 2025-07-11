@@ -12,8 +12,19 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# ディレクトリをワークスペースに変更
-cd /workspace
+# プロジェクトルートディレクトリを動的に検出
+# 方法1: gitリポジトリのルートを探す
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+
+# 方法2: gitが使えない場合は、スクリプトの場所から推測
+if [ -z "$PROJECT_ROOT" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # scriptsディレクトリの親がプロジェクトルート
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+
+# プロジェクトルートに移動
+cd "$PROJECT_ROOT"
 
 # RESULT変数を初期化
 RESULT=0
