@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/workspace/scripts/claude-slack-notification.sh Stop",
+            "description": "Slackにタスク完了を通知"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/workspace/scripts/claude-slack-notification.sh Notification",
+            "description": "Slackに通知イベントを表示"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/workspace/scripts/claude-slack-notification.sh SubagentStop",
+            "description": "Slackにサブエージェント完了を通知"
+          }
+        ]
+      }
+    ]
+  }
+}
