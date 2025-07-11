@@ -1,0 +1,16 @@
+{
+  "name": "claude-code-devcontainer",
+  "version": "1.0.0",
+  "description": "Claude Code Dev Container with textlint integration",
+  "scripts": {
+    "textlint": "textlint",
+    "textlint:fix": "textlint --fix",
+    "lint:md": "textlint '**/*.md' --ignore-path .gitignore",
+    "lint:md:fix": "textlint '**/*.md' --fix --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "textlint": "^14.0.0",
+    "textlint-rule-preset-ai-writing": "^1.1.0"
+  },
+  "license": "MIT"
+}

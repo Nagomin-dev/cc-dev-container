@@ -35,6 +35,30 @@
           }
         ]
       }
+    ],
+    "Write": [
+      {
+        "matcher": ".*\\.md$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/workspace/scripts/textlint-check.sh",
+            "description": "MarkdownファイルのAI文章パターンをチェック"
+          }
+        ]
+      }
+    ],
+    "Edit": [
+      {
+        "matcher": ".*\\.md$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/workspace/scripts/textlint-check.sh",
+            "description": "MarkdownファイルのAI文章パターンをチェック"
+          }
+        ]
+      }
     ]
   }
 }

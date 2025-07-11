@@ -14,8 +14,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 /workspace/
 ├── .claude/
 │   ├── commands/             # カスタムスラッシュコマンド
+│   │   ├── check-ai-writing.md # /project:check-ai-writing
 │   │   ├── create-command.md # /project:create-command
 │   │   ├── edit-command.md   # /project:edit-command
+│   │   ├── fix-ai-writing.md # /project:fix-ai-writing
 │   │   └── git-commit.md     # /project:git-commit
 │   ├── settings.json         # チーム共有のClaude Code設定
 │   └── settings.local.json   # 個人設定（Gitで無視）
@@ -23,11 +25,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 │   ├── devcontainer.json     # VS Code用のコンテナ設定
 │   ├── Dockerfile            # Node.js 20ベースの開発環境
 │   └── init-firewall.sh      # セキュリティのためのファイアウォール設定
+├── docs/                     # ドキュメント
+│   └── textlint-setup.md     # textlintセットアップガイド
 ├── scripts/
-│   └── claude-slack-notification.sh  # Slack通知スクリプト
+│   ├── claude-slack-notification.sh  # Slack通知スクリプト
+│   ├── textlint-check.sh     # AI文章チェックスクリプト
+│   └── textlint-fix.sh       # AI文章自動修正スクリプト
 ├── .gitignore                # Git除外設定
+├── .textlintrc.json          # textlint設定
 ├── CLAUDE.md                 # このファイル
-└── claude-slack-setup.md     # Slack通知セットアップガイド
+├── claude-slack-setup.md     # Slack通知セットアップガイド
+└── package.json              # Node.js依存関係
 ```
 
 ### 主要コンポーネント
@@ -43,6 +51,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **スクリプト** (scripts/)
   - `claude-slack-notification.sh`: Slack通知を送信するスクリプト
+  - `textlint-check.sh`: AIっぽい文章パターンをチェックするスクリプト
+  - `textlint-fix.sh`: AIっぽい文章パターンを自動修正するスクリプト
 
 ### セキュリティ設計
 
@@ -68,6 +78,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **重要**: Webhook URLは `.claude/settings.local.json` に環境変数として保存されており、Gitには含まれません。
 
+## textlint AI文章検出機能
+
+このプロジェクトには、AIが生成したような文章パターンを検出・修正する `textlint-rule-preset-ai-writing` が統合されています。
+
+### 自動チェック機能
+
+- Markdownファイル（`.md`）を編集・作成時に自動的にAIっぽい文章をチェック
+- Claude Code Hooksと統合され、問題がある場合は警告を表示
+
+### 手動チェック・修正
+
+```bash
+# 特定のファイルをチェック
+./scripts/textlint-check.sh CLAUDE.md
+
+# すべてのMarkdownファイルをチェック
+npm run lint:md
+
+# AIっぽい文章を自動修正
+./scripts/textlint-fix.sh CLAUDE.md
+# または
+npm run lint:md:fix
+```
+
+### 検出される主なパターン
+
+- 機械的な箇条書き形式（絵文字や太字の過剰使用）
+- AIツール特有の定型的な表現
+- 不自然な強調パターン
+
+詳細なセットアップガイドは [docs/textlint-setup.md](docs/textlint-setup.md) を参照してください。
+
 ## カスタムスラッシュコマンド
 
 以下のカスタムコマンドが利用可能です：
@@ -75,6 +117,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `/project:create-command` - 新しいカスタムコマンドを作成
 - `/project:edit-command` - 既存のカスタムコマンドを編集
 - `/project:git-commit` - Git commitのヘルパー
+- `/project:check-ai-writing` - Markdownファイルのアイっぽい文章をチェック
+- `/project:fix-ai-writing` - AIっぽい文章パターンを自動修正
 
 ## 開発コマンド
 
@@ -112,6 +156,7 @@ echo $SLACK_WEBHOOK_URL
   - iptables/ipset (ファイアウォール用)
   - Claude Code CLI
   - curl (Slack通知用)
+  - textlint, textlint-rule-preset-ai-writing (AI文章検出用)
 
 ## 重要な注意事項
 
