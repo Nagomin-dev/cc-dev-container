@@ -3,7 +3,10 @@
 language: "ja-JP"
 early_access: false
 enable_free_tier: true
-tone_instructions: ''
+tone_instructions: |
+  - レビューは日本語で行ってください
+  - 専門用語は適切に日本語化してください
+  - コードのコメントは英語のままで構いません
 knowledge_base:
   learnings:
     scope: auto
@@ -18,9 +21,3 @@ reviews:
   poem: false
   review_status: true
   collapse_walkthrough: true
-  # 日本語でのレビューに関する追加設定
-  review_language: "Japanese"
-  review_instructions: |
-    - レビューは日本語で行ってください
-    - 専門用語は適切に日本語化してください
-    - コードのコメントは英語のままで構いません
