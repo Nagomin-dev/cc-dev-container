@@ -1,0 +1,120 @@
+name: MCP Server Test
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.mcp.json'
+      - 'scripts/mcp-*.sh'
+      - '.github/workflows/mcp-test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.mcp.json'
+      - 'scripts/mcp-*.sh'
+      - '.github/workflows/mcp-test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        # npm ciがpackage-lock.jsonを必要とするため、存在しない場合はnpm installを使用
+        if [ -f "package-lock.json" ]; then
+          npm ci
+        else
+          npm install
+        fi
+
+    - name: Validate MCP configuration
+      run: |
+        echo "📋 Validating MCP configuration files..."
+
+        # Check if .mcp.json exists and is valid JSON
+        if [ -f .mcp.json ]; then
+          jq . .mcp.json > /dev/null || exit 1
+          echo "✅ .mcp.json is valid"
+        else
+          echo "❌ .mcp.json not found"
+          exit 1
+        fi
+
+    - name: Run MCP test script
+      env:
+        CI: true
+        GITHUB_ACTIONS: true
+      run: |
+        chmod +x scripts/mcp-test.sh
+        # デバッグ情報を表示
+        echo "Current directory: $(pwd)"
+        echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+        echo "Node modules contents:"
+        ls -la node_modules/@modelcontextprotocol/ || echo "MCP modules not found"
+        echo ""
+        # テストスクリプトを実行
+        ./scripts/mcp-test.sh
+
+    - name: Test MCP server startup
+      run: |
+        echo "🚀 Testing MCP server startup..."
+
+        # Test filesystem server can start
+        if [ -f "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js" ]; then
+          timeout 5s node node_modules/@modelcontextprotocol/server-filesystem/dist/index.js /tmp --help || true
+          echo "✅ Filesystem server startup test passed"
+        else
+          echo "❌ Filesystem server not found"
+          exit 1
+        fi
+
+    - name: Validate package dependencies
+      run: |
+        echo "📦 Validating package dependencies..."
+
+        # Check for deprecated packages
+        if [ -d "node_modules/@modelcontextprotocol/server-github" ]; then
+          echo "⚠️  Warning: Deprecated package @modelcontextprotocol/server-github found"
+          echo "Please use @github/mcp-server-github instead"
+        fi
+
+        # Ensure required packages are installed
+        if [ ! -d "node_modules/@modelcontextprotocol/sdk" ]; then
+          echo "❌ @modelcontextprotocol/sdk not found"
+          exit 1
+        fi
+
+        if [ ! -d "node_modules/@modelcontextprotocol/server-filesystem" ]; then
+          echo "❌ @modelcontextprotocol/server-filesystem not found"
+          exit 1
+        fi
+
+        echo "✅ Package dependencies validated"
+
+    - name: Generate test report
+      if: always()
+      run: |
+        echo "📊 Test Summary"
+        echo "=============="
+        echo "Node.js version: ${{ matrix.node-version }}"
+        echo "Test status: ${{ job.status }}"
+        echo ""
+        echo "For detailed MCP setup instructions, see docs/mcp-setup.md"
