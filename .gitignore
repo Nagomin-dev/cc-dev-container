@@ -35,3 +35,6 @@ node_modules/
 
 # textlint backup
 .textlint-backup/
+
+# VSCode/Cursor/Windsurf extensions
+.devcontainer/extensions/*.vsix

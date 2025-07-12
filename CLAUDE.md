@@ -24,7 +24,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ├── .devcontainer/
 │   ├── devcontainer.json     # VS Code用のコンテナ設定
 │   ├── Dockerfile            # Node.js 20ベースの開発環境
-│   └── init-firewall.sh      # セキュリティのためのファイアウォール設定
+│   ├── init-firewall.sh      # セキュリティのためのファイアウォール設定
+│   ├── install-extensions.sh # VSCodeフォーク拡張機能インストールスクリプト
+│   └── extensions/           # VSCodeフォーク拡張機能のVSIXファイル格納ディレクトリ
 ├── docs/                     # ドキュメント
 │   ├── textlint-setup.md     # textlintセットアップガイド
 │   └── mcp-setup.md          # MCPサーバーセットアップガイド
@@ -221,6 +223,33 @@ echo $SLACK_WEBHOOK_URL
   - curl (Slack通知用)
   - textlint, textlint-rule-preset-ai-writing (AI文章検出用)
 
+## VSCodeフォーク拡張機能の永続化
+
+開発コンテナを再作成しても拡張機能が保持されるよう、以下の仕組みが実装されています：
+
+### 自動永続化ボリューム
+
+以下のボリュームが自動的にマウントされ、拡張機能が永続化されます：
+- VSCode: `vscode-extensions` ボリューム（`.vscode-server/extensions`）
+- Cursor: `cursor-extensions` ボリューム（`.cursor-server/extensions`）
+- Windsurf: `windsurf-extensions` ボリューム（`.windsurf-server/extensions`）
+
+### カスタム拡張機能のインストール
+
+1. `.devcontainer/extensions/` ディレクトリにVSIXファイルを配置
+2. コンテナ起動時に自動的にインストールされます
+3. VSIXファイルは `.gitignore` で除外されるため、リポジトリには含まれません
+
+### 使用方法
+
+```bash
+# VSIXファイルを配置
+cp your-extension.vsix .devcontainer/extensions/
+
+# コンテナを再起動
+# 拡張機能が自動的にインストールされます
+```
+
 ## 重要な注意事項
 
 1. ファイアウォールは自動的に設定され、許可されたドメインへのアクセスのみを許可します
@@ -229,7 +258,8 @@ echo $SLACK_WEBHOOK_URL
 4. Slack Webhook URLは環境変数として管理され、Gitリポジトリには含まれません
 5. `.claude/settings.local.json` は `.gitignore` に含まれており、個人設定を安全に保存できます
 6. `.mcp.local.json` も `.gitignore` に含まれており、APIキーなどの秘密情報を安全に保存できます
-7. MCPサーバーはコンテナ起動時に自動的に設定されます
+7. VSCodeフォークの拡張機能は専用ボリュームに永続化され、コンテナ再作成後も保持されます
+8. MCPサーバーはコンテナ起動時に自動的に設定されます
 
 ## セキュリティベストプラクティス
 
