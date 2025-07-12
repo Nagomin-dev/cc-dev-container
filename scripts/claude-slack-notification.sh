@@ -6,6 +6,17 @@ set -euo pipefail
 # 環境変数からWebhook URLを取得（セキュリティのため）
 WEBHOOK_URL="${SLACK_WEBHOOK_URL}"
 
+# 環境変数が設定されていない場合は設定ファイルから取得
+if [ -z "$WEBHOOK_URL" ]; then
+    SETTINGS_FILE="$HOME/.claude/settings.local.json"
+    if [ -f "$SETTINGS_FILE" ]; then
+        # jqが利用可能か確認してから使用
+        if command -v jq >/dev/null 2>&1; then
+            WEBHOOK_URL=$(jq -r '.env.SLACK_WEBHOOK_URL // empty' "$SETTINGS_FILE" 2>/dev/null || echo "")
+        fi
+    fi
+fi
+
 # デバッグモード
 DEBUG="${SLACK_NOTIFICATION_DEBUG:-0}"
 
@@ -63,7 +74,8 @@ JSON_INPUT=""
 if read -t 0; then
     # stdinにデータがある場合、JSON入力を読み取る
     debug_log "Reading JSON from stdin"
-    if IFS= read -r JSON_INPUT; then
+    JSON_INPUT=$(cat)
+    if [ -n "$JSON_INPUT" ]; then
         debug_log "Received JSON: $JSON_INPUT"
 
         # JSONからイベント情報を抽出（引数で渡されたイベントタイプを優先）
