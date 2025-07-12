@@ -186,12 +186,22 @@ jobs:
           # ブランチやラベルに基づいてチャンネルを決定
           # Bot Token方式ではチャンネルIDを使用（環境変数で管理することを推奨）
           # デフォルトチャンネルID（例: C1234567890）
-          CHANNEL="${SLACK_CHANNEL_GITHUB_NOTIFICATIONS:-C1234567890}"
+          CHANNEL="${{ vars.SLACK_CHANNEL_GITHUB_NOTIFICATIONS || 'C1234567890' }}"
 
-          # PRの場合、ベースブランチをjqで取得
+          # PRの場合、GitHub APIを使用してベースブランチを取得
           if [[ -n "${{ github.event.issue.pull_request.url || '' }}" ]]; then
-            # GITHUB_EVENT_PATHからベースブランチ情報を取得
-            BASE_REF=$(jq -r '.issue.pull_request.base.ref // empty' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "")
+            PR_URL="${{ github.event.issue.pull_request.url }}"
+            echo "Fetching PR details from: $PR_URL"
+
+            # GitHub APIでPR情報を取得
+            PR_DATA=$(curl -s -H "Authorization: Bearer ${{ github.token }}" \
+                           -H "Accept: application/vnd.github.v3+json" \
+                           "$PR_URL")
+
+            # ベースブランチを抽出
+            BASE_REF=$(echo "$PR_DATA" | jq -r '.base.ref // empty')
+            echo "Base branch: $BASE_REF"
+
             if [[ "$BASE_REF" == "main" ]]; then
               CHANNEL="${{ vars.SLACK_CHANNEL_PRODUCTION_ALERTS || 'C0987654321' }}"
             fi

@@ -87,7 +87,7 @@ Bot Token方式では、チャンネル名ではなくチャンネルIDを使用
 
 ```bash
 # Slack APIを使用してチャンネル一覧を取得
-curl -H "Authorization: Bearer xoxb-your-token" \
+curl -H "Authorization: Bearer <YOUR_SLACK_BOT_TOKEN>" \
   https://slack.com/api/conversations.list?types=public_channel,private_channel
 ```
 
