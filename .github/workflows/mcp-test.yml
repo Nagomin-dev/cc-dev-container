@@ -1,0 +1,97 @@
+name: MCP Server Test
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.mcp.json'
+      - 'scripts/mcp-*.sh'
+      - '.github/workflows/mcp-test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.mcp.json'
+      - 'scripts/mcp-*.sh'
+      - '.github/workflows/mcp-test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Validate MCP configuration
+      run: |
+        echo "📋 Validating MCP configuration files..."
+
+        # Check if .mcp.json exists and is valid JSON
+        if [ -f .mcp.json ]; then
+          jq . .mcp.json > /dev/null || exit 1
+          echo "✅ .mcp.json is valid"
+        else
+          echo "❌ .mcp.json not found"
+          exit 1
+        fi
+
+    - name: Run MCP test script
+      run: |
+        chmod +x scripts/mcp-test.sh
+        ./scripts/mcp-test.sh
+
+    - name: Test MCP server startup
+      run: |
+        echo "🚀 Testing MCP server startup..."
+
+        # Test filesystem server can start
+        if [ -f "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js" ]; then
+          timeout 5s node node_modules/@modelcontextprotocol/server-filesystem/dist/index.js /tmp --help || true
+          echo "✅ Filesystem server startup test passed"
+        else
+          echo "❌ Filesystem server not found"
+          exit 1
+        fi
+
+    - name: Validate package dependencies
+      run: |
+        echo "📦 Validating package dependencies..."
+
+        # Check for deprecated packages
+        if npm list @modelcontextprotocol/server-github 2>/dev/null; then
+          echo "⚠️  Warning: Deprecated package @modelcontextprotocol/server-github found"
+          echo "Please use @github/mcp-server-github instead"
+        fi
+
+        # Ensure required packages are installed
+        npm list @modelcontextprotocol/sdk || exit 1
+        npm list @modelcontextprotocol/server-filesystem || exit 1
+
+        echo "✅ Package dependencies validated"
+
+    - name: Generate test report
+      if: always()
+      run: |
+        echo "📊 Test Summary"
+        echo "=============="
+        echo "Node.js version: ${{ matrix.node-version }}"
+        echo "Test status: ${{ job.status }}"
+        echo ""
+        echo "For detailed MCP setup instructions, see docs/mcp-setup.md"

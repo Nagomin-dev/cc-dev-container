@@ -14,6 +14,12 @@ Dev Containerを起動すると、以下が自動的に実行されます：
 2. MCPキャッシュディレクトリの作成
 3. `.mcp.local.json`テンプレートの生成（存在しない場合）
 
+**注意**: Git MCPサーバーを使用するには、`@modelcontextprotocol/server-git`パッケージが必要です。現在のpackage.jsonには含まれていないため、以下のコマンドでインストールしてください：
+
+```bash
+npm install --save-dev @modelcontextprotocol/server-git
+```
+
 ## 設定ファイル
 
 ### `.mcp.json`（共有設定）
@@ -32,19 +38,6 @@ Dev Containerを起動すると、以下が自動的に実行されます：
         "disallowedOperations": ["write", "delete", "rename"],
         "allowSymlinks": false
       }
-    },
-    "git": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["node_modules/@modelcontextprotocol/server-git/dist/index.js"],
-      "config": {
-        "repositories": [
-          {
-            "path": "/workspace",
-            "name": "current-project"
-          }
-        ]
-      }
     }
   }
 }
@@ -54,23 +47,23 @@ Dev Containerを起動すると、以下が自動的に実行されます：
 
 個人的な設定やAPIキーを含む設定ファイルです。このファイルは`.gitignore`に含まれているため、Gitにコミットされません。
 
-例：GitHub MCPサーバーの設定
+例：GitHub MCPサーバーの設定（公式実装）
 ```json
 {
   "mcpServers": {
     "github": {
       "type": "stdio",
-      "command": "node",
-      "args": ["node_modules/@modelcontextprotocol/server-github/dist/index.js"],
-      "config": {
-        "owner": "your-github-username",
-        "repo": "your-repo-name",
-        "auth": "${GITHUB_TOKEN}"
+      "command": "npx",
+      "args": ["-y", "@github/mcp-server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
       }
     }
   }
 }
 ```
+
+**注意**: 従来の`@modelcontextprotocol/server-github`パッケージは非推奨となりました。GitHubの公式MCPサーバー実装（[@github/mcp-server-github](https://github.com/github/github-mcp-server)）の使用を推奨します。
 
 ## 利用可能なMCPサーバー
 
@@ -82,27 +75,23 @@ Dev Containerを起動すると、以下が自動的に実行されます：
 - **操作**: 読み取り専用（書き込み、削除、リネームは無効）
 - **用途**: ファイルの参照、内容の確認
 
-### 2. Git サーバー
-
-Gitリポジトリ情報へのアクセスを提供します。
-
-- **機能**: コミット履歴、ブランチ情報、差分の確認
-- **用途**: バージョン管理情報の参照
-
-### 3. GitHub サーバー（オプション）
+### 2. GitHub サーバー（オプション）
 
 GitHub APIとの統合を提供します。
 
+- **公式実装**: [@github/mcp-server-github](https://github.com/github/github-mcp-server)
 - **設定**: `.mcp.local.json`でGitHubトークンの設定が必要
-- **機能**: Issue、Pull Request、リポジトリ情報へのアクセス
-- **環境変数**: `GITHUB_TOKEN`を設定
+- **機能**: リポジトリ管理、ファイル操作、Issue/PR操作、検索、ブランチ作成
+- **環境変数**: `GITHUB_PERSONAL_ACCESS_TOKEN`を設定
+- **注意**: 従来の`@modelcontextprotocol/server-github`は非推奨
 
-### 4. PostgreSQL/SQLite サーバー（オプション）
+### 3. PostgreSQL/SQLite サーバー（オプション）
 
 データベースへのアクセスを提供します。
 
-- **インストール**: `npm install`で自動的にインストール（optional dependencies）
+- **インストール**: 必要に応じて個別にインストール
 - **設定**: `.mcp.local.json`で接続情報の設定が必要
+- **例**: `@modelcontextprotocol/server-postgres`、`@modelcontextprotocol/server-sqlite`
 
 ## MCPサーバーの管理
 

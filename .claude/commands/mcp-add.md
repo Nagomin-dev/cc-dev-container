@@ -23,9 +23,11 @@
 
 ## 例
 
-GitHub MCPサーバーを追加する場合：
+GitHub MCPサーバーを追加する場合（公式実装）：
 1. タイプ: stdio
 2. 名前: github
-3. コマンド: node
-4. 引数: node_modules/@modelcontextprotocol/server-github/dist/index.js
-5. 設定: owner、repo、auth（環境変数）
+3. コマンド: npx
+4. 引数: -y @github/mcp-server-github
+5. 環境変数: GITHUB_PERSONAL_ACCESS_TOKEN（GitHubトークン）
+
+注意: 従来の`@modelcontextprotocol/server-github`は非推奨となりました。

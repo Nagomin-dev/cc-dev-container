@@ -15,8 +15,5 @@
     "@modelcontextprotocol/sdk": "^1.15.1",
     "@modelcontextprotocol/server-filesystem": "^2025.7.1"
   },
-  "optionalDependencies": {
-    "@modelcontextprotocol/server-github": "^2025.4.8"
-  },
   "license": "MIT"
 }

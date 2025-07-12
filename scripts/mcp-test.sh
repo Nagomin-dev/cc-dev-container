@@ -60,7 +60,6 @@ done
 
 # オプションパッケージ
 optional_packages=(
-    "@modelcontextprotocol/server-github"
     "@modelcontextprotocol/server-postgres"
     "@modelcontextprotocol/server-sqlite"
 )
@@ -79,14 +78,26 @@ done
 echo ""
 echo "🚀 MCPサーバーの基本動作確認..."
 
+# スタートアップテストの失敗を追跡する変数
+startup_failed=false
+
 # filesystemサーバーのテスト
 echo "  filesystem サーバーのテスト..."
 if [ -f "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js" ]; then
     # サーバーが起動できるか確認（すぐに終了）
-    timeout 2s node node_modules/@modelcontextprotocol/server-filesystem/dist/index.js /workspace --help >/dev/null 2>&1 || true
-    echo -e "  ${GREEN}✓${NC} filesystem サーバーは正常に動作可能です"
+    timeout 2s node node_modules/@modelcontextprotocol/server-filesystem/dist/index.js /workspace --help >/dev/null 2>&1
+    exit_code=$?
+
+    if [ $exit_code -eq 0 ] || [ $exit_code -eq 124 ]; then
+        # exit code 0 = success, 124 = timeout (expected for a running server)
+        echo -e "  ${GREEN}✓${NC} filesystem サーバーは正常に動作可能です"
+    else
+        echo -e "  ${RED}✗${NC} filesystem サーバーの起動に失敗しました (exit code: $exit_code)"
+        startup_failed=true
+    fi
 else
     echo -e "  ${RED}✗${NC} filesystem サーバーが見つかりません"
+    startup_failed=true
 fi
 
 
@@ -95,8 +106,8 @@ echo ""
 echo "📊 テスト結果のサマリー"
 echo "================================"
 
-if [ ${#missing_packages[@]} -eq 0 ]; then
-    echo -e "${GREEN}✅ すべての必須パッケージがインストールされています${NC}"
+if [ ${#missing_packages[@]} -eq 0 ] && [ "$startup_failed" = false ]; then
+    echo -e "${GREEN}✅ すべての必須パッケージがインストールされ、MCPサーバーは正常に動作可能です${NC}"
     echo ""
     echo "MCPサーバーを使用する準備ができています！"
     echo ""
@@ -107,7 +118,12 @@ if [ ${#missing_packages[@]} -eq 0 ]; then
     echo "  claude mcp add"
     exit 0
 else
-    echo -e "${RED}❌ 一部の必須パッケージが不足しています${NC}"
+    if [ ${#missing_packages[@]} -gt 0 ]; then
+        echo -e "${RED}❌ 一部の必須パッケージが不足しています${NC}"
+    fi
+    if [ "$startup_failed" = true ]; then
+        echo -e "${RED}❌ MCPサーバーの起動テストに失敗しました${NC}"
+    fi
     echo ""
     echo "以下のコマンドで依存関係をインストールしてください:"
     echo "  npm install"

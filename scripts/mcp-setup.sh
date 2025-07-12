@@ -7,6 +7,13 @@ set -e
 
 echo "🔧 MCPサーバーのセットアップを開始します..."
 
+# MCP_CACHE_DIRの検証
+if [ -z "$MCP_CACHE_DIR" ]; then
+    echo "⚠️  警告: MCP_CACHE_DIR環境変数が設定されていません"
+    echo "デフォルト値を使用します: /home/vscode/.mcp"
+    MCP_CACHE_DIR="/home/vscode/.mcp"
+fi
+
 # MCPキャッシュディレクトリの作成
 if [ ! -d "$MCP_CACHE_DIR" ]; then
     mkdir -p "$MCP_CACHE_DIR"
@@ -21,12 +28,10 @@ if [ ! -f "/workspace/.mcp.local.json" ]; then
   "mcpServers": {
     "github": {
       "type": "stdio",
-      "command": "node",
-      "args": ["node_modules/@modelcontextprotocol/server-github/dist/index.js"],
-      "config": {
-        "owner": "your-github-username",
-        "repo": "your-repo-name",
-        "auth": "${GITHUB_TOKEN}"
+      "command": "npx",
+      "args": ["-y", "@github/mcp-server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
       }
     }
   }
