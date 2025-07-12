@@ -30,15 +30,60 @@
 
 ## セットアップ手順
 
-### 1. Slack Webhook URLの設定
+### ⚠️ 重要: 必須設定について
 
-既存のSlack Webhook URLを使用するか、新規に作成します。
+**このワークフローを動作させるには、以下の設定が必須です：**
+
+1. **Slack認証情報の設定** (Bot TokenまたはWebhook URL)
+2. **チャンネルIDの設定** (Bot Token方式の場合)
+
+設定が不完全な場合、ワークフローは明確なエラーメッセージと共に失敗します。
+
+### 1. Slack Bot Tokenの設定（推奨）
+
+**重要**: Slack Webhook URLは単一チャンネルにしか送信できません。複数チャンネルへの通知が必要な場合は、Bot Token方式を使用してください。
+
+#### Bot Token方式（複数チャンネル対応）
+
+1. **Slack Appの作成**
+   - [api.slack.com/apps](https://api.slack.com/apps) にアクセス
+   - "Create New App" → "From scratch"を選択
+   - アプリ名とワークスペースを設定
+
+2. **権限の設定**
+   - "OAuth & Permissions"ページへ移動
+   - "Scopes" → "Bot Token Scopes"で以下を追加：
+     - `chat:write` - メッセージ送信権限
+     - `chat:write.public` - パブリックチャンネルへの送信権限
+
+3. **アプリのインストール**
+   - "Install to Workspace"をクリック
+   - 権限を確認して承認
+
+4. **Bot Tokenの取得**
+   - "OAuth & Permissions"ページの"Bot User OAuth Token"をコピー
+   - `xoxb-`で始まるトークン
+
+5. **GitHub Secretsへの登録**
+   ```bash
+   # GitHubリポジトリ > Settings > Secrets and variables > Actions
+   # "New repository secret"から SLACK_BOT_TOKEN を追加
+   ```
+
+6. **チャンネルIDの確認**
+   - Slackでチャンネルを右クリック → "View channel details"
+   - 最下部の"Channel ID"をコピー（例: C1234567890）
+
+#### Webhook URL方式（単一チャンネルのみ）
+
+既存のWebhook URLを使用する場合：
 
 ```bash
-# 既存のWebhook URLがある場合は、それをGitHub Secretsに追加
 # GitHubリポジトリ > Settings > Secrets and variables > Actions
 # "New repository secret"から SLACK_WEBHOOK_URL を追加
 ```
+
+**注意**: Webhook URL方式では、チャンネル振り分け機能は動作しません。
 
 ### 2. ワークフローファイルの選択
 
@@ -47,7 +92,53 @@
 - 基本的な通知のみ必要な場合 - `bot-comment-notify.yml`
 - 高度なフィルタリングが必要な場合 - `bot-comment-notify-advanced.yml`
 
-### 3. ワークフローの有効化
+### 3. ワークフローの設定
+
+#### 基本版（bot-comment-notify.yml）
+
+**必須設定：**
+
+Bot Token方式の場合、GitHub Variablesで`SLACK_CHANNEL_ID`を設定：
+
+```bash
+# GitHubリポジトリ > Settings > Secrets and variables > Actions > Variables
+# 【必須】通知先のチャンネルID（例: C1234567890）
+SLACK_CHANNEL_ID=C1234567890
+```
+
+**設定チェック：**
+- ワークフロー実行時に設定が正しいかを自動チェック
+- 設定が不完全な場合は詳細なエラーメッセージを表示
+
+#### 高度版（bot-comment-notify-advanced.yml）
+
+**必須設定：**
+
+```bash
+# GitHubリポジトリ > Settings > Secrets and variables > Actions > Variables
+# 【必須】デフォルト通知チャンネル
+SLACK_CHANNEL_GITHUB_NOTIFICATIONS=C1234567890
+```
+
+**任意設定（チャンネル振り分け用）：**
+
+```bash
+# 【任意】mainブランチPR用チャンネル
+SLACK_CHANNEL_PRODUCTION_ALERTS=C0987654321
+
+# 【任意】urgentラベル用チャンネル  
+SLACK_CHANNEL_URGENT_NOTIFICATIONS=C1122334455
+
+# 【任意】securityラベル用チャンネル
+SLACK_CHANNEL_SECURITY_ALERTS=C5566778899
+```
+
+**設定チェック：**
+- 必須設定が不完全な場合は詳細なエラーメッセージを表示
+- 任意設定が未設定の場合はデフォルトチャンネルを使用（警告表示）
+- GitHub API呼び出し失敗時の適切なフォールバック処理
+
+### 4. ワークフローの有効化
 
 選択したワークフローファイルを `.github/workflows/` ディレクトリに配置すると、自動的に有効になります。
 
@@ -99,14 +190,39 @@ env:
 
 高重要度のコメントには`@channel`メンションが自動的に追加されます。
 
-### チャンネル振り分け
+### チャンネル振り分け（Bot Token方式のみ）
 
-以下の条件でSlackチャンネルが自動選択されます。
+Bot Token方式を使用している場合、以下の条件でSlackチャンネルが自動選択されます。
 
-- mainブランチへのPR: `#production-alerts`
-- `urgent`ラベル付き: `#urgent-notifications`
-- `security`ラベル付き: `#security-alerts`
-- デフォルト: `#github-notifications`
+#### GitHub Variablesの設定
+
+チャンネルIDはGitHub Repository VariablesまたはOrganization Variablesで管理することを推奨します：
+
+**設定手順：**
+1. GitHub リポジトリの Settings > Secrets and variables > Actions に移動
+2. Variables タブで "New repository variable" をクリック
+3. 以下の変数を設定：
+
+```bash
+# 【必須】デフォルト通知チャンネル
+SLACK_CHANNEL_GITHUB_NOTIFICATIONS=C1234567890
+
+# 【任意】特定条件用チャンネル（未設定時はデフォルトチャンネルを使用）
+SLACK_CHANNEL_PRODUCTION_ALERTS=C0987654321         # mainブランチPR用
+SLACK_CHANNEL_URGENT_NOTIFICATIONS=C1122334455      # urgentラベル用  
+SLACK_CHANNEL_SECURITY_ALERTS=C5566778899           # securityラベル用
+```
+
+**重要：** フォールバック用のダミーチャンネルIDは削除されました。必須設定が未設定の場合、ワークフローは明確なエラーメッセージと共に失敗します。
+
+#### 振り分けルール
+
+- mainブランチへのPR: `SLACK_CHANNEL_PRODUCTION_ALERTS`
+- `urgent`ラベル付き: `SLACK_CHANNEL_URGENT_NOTIFICATIONS`
+- `security`ラベル付き: `SLACK_CHANNEL_SECURITY_ALERTS`
+- デフォルト: `SLACK_CHANNEL_GITHUB_NOTIFICATIONS`
+
+**注意**: Webhook URL方式では、この機能は利用できません。
 
 ## ボット判定ロジック
 
@@ -148,24 +264,76 @@ elif [[ "${{ github.event.comment.user.login }}" =~ "your-bot-name" ]]; then
 
 ### 通知が届かない場合
 
-1. **GitHub Secretsの確認**
+#### 1. **設定エラーの確認**
 
-   ```bash
-   # ワークフローログでSecretが設定されているか確認
-   # Settings > Actions > 該当のワークフロー実行 > ログを確認
-   ```
+新しいワークフローでは設定不完全時に詳細なエラーメッセージが表示されます：
 
-2. **ボット判定の確認**
-   - コメント投稿者のユーザー名を確認
-   - Claude Code Actionの場合、コメント内容にキーワードが含まれているか確認
+```
+❌ エラー: SLACK_CHANNEL_ID が設定されていません
+📋 セットアップ手順:
+1. GitHub リポジトリの Settings > Secrets and variables > Actions に移動
+2. Variables タブで 'New repository variable' をクリック
+3. Name: SLACK_CHANNEL_ID, Value: 実際のSlackチャンネルID を入力
+4. 詳細は docs/github-bot-slack-notification.md を参照
+```
 
-3. **Webhook URLのテスト**
+**対処法：**
+- GitHub Actions の実行ログでエラーメッセージを確認
+- 指示に従って必須設定を追加
 
-   ```bash
-   curl -X POST -H 'Content-type: application/json' \
-     --data '{"text":"Test from GitHub Actions"}' \
-     YOUR_WEBHOOK_URL
-   ```
+#### 2. **GitHub Secretsの確認**
+
+```bash
+# ワークフローログでSecretが設定されているか確認
+# Settings > Actions > 該当のワークフロー実行 > ログを確認
+```
+
+#### 3. **ボット判定の確認**
+- コメント投稿者のユーザー名を確認
+- Claude Code Actionの場合、コメント内容にキーワードが含まれているか確認
+
+#### 4. **Bot Token方式の場合**
+- Bot Tokenが正しく設定されているか確認（`xoxb-`で始まる）
+- Slackアプリがワークスペースにインストールされているか確認
+- 必要な権限（chat:write, chat:write.public）が付与されているか確認
+- チャンネルIDが正しいか確認（チャンネル名ではなくID）
+
+#### 5. **Webhook URL方式の場合**
+
+```bash
+curl -X POST -H 'Content-type: application/json' \
+  --data '{"text":"Test from GitHub Actions"}' \
+  YOUR_WEBHOOK_URL
+```
+
+### チャンネル振り分けが機能しない場合
+
+- **Bot Token方式を使用しているか確認** - Webhook URL方式では機能しません
+- **GitHub Variablesが正しく設定されているか確認**
+- **チャンネルIDの形式を確認**（C1234567890のような形式）
+
+### GitHub API関連のエラー
+
+高度版ワークフローでGitHub API呼び出しが失敗する場合：
+
+```
+❌ GitHub API呼び出しに失敗しました
+⚠️  デフォルトチャンネルを使用します
+```
+
+または
+
+```
+❌ GitHub API エラー (HTTP 403)
+⚠️  デフォルトチャンネルを使用します
+```
+
+**原因と対処法：**
+- **レート制限**: GitHub API のレート制限に達した場合（通常は自動回復）
+- **権限不足**: ワークフローの`GITHUB_TOKEN`権限が不足
+- **一時的な障害**: GitHub側の一時的な問題（自動的にフォールバック）
+
+**対処不要：** エラーが発生してもデフォルトチャンネルで通知は送信されます。
 
 ### 特定のコメントだけ通知したい場合
 
@@ -187,3 +355,4 @@ elif [[ "${{ github.event.comment.user.login }}" =~ "your-bot-name" ]]; then
 - `.github/workflows/bot-comment-notify.yml` - 基本的な通知ワークフロー
 - `.github/workflows/bot-comment-notify-advanced.yml` - 高度な通知ワークフロー
 - `scripts/claude-slack-notification.sh` - ローカルClaude Code用のSlack通知スクリプト
+- `docs/slack-app-setup.md` - Slack App設定の詳細ガイド

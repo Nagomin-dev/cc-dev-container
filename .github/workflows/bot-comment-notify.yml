@@ -1,5 +1,11 @@
 name: Bot Comment Notification
 
+# このワークフローはSlack Bot Tokenを使用して通知を送信します
+# Webhook URLバージョンから移行する場合:
+# 1. Slack Appを作成し、chat:write, chat:write.publicスコープを付与
+# 2. Bot User OAuth TokenをGitHub Secretsに SLACK_BOT_TOKEN として保存
+# 3. 環境変数でチャンネルIDを設定（SLACK_CHANNEL_ID）
+
 on:
   issue_comment:
     types: [created]
@@ -8,6 +14,12 @@ permissions:
   contents: read
   issues: read
   pull-requests: read
+
+env:
+  # SlackチャンネルID（GitHub Variablesでの設定が必須）
+  # セットアップ手順: Settings > Secrets and variables > Actions > Variables タブ
+  # SLACK_CHANNEL_ID を実際のチャンネルIDに設定してください
+  SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
 
 jobs:
   notify-slack:
@@ -19,6 +31,20 @@ jobs:
        github.event.comment.user.login == 'github-actions[bot]')
 
     steps:
+      - name: Validate Slack configuration
+        run: |
+          set -euo pipefail
+          if [[ -z "${{ env.SLACK_CHANNEL_ID }}" ]]; then
+            echo "❌ エラー: SLACK_CHANNEL_ID が設定されていません"
+            echo "📋 セットアップ手順:"
+            echo "1. GitHub リポジトリの Settings > Secrets and variables > Actions に移動"
+            echo "2. Variables タブで 'New repository variable' をクリック"
+            echo "3. Name: SLACK_CHANNEL_ID, Value: 実際のSlackチャンネルID を入力"
+            echo "4. 詳細は docs/github-bot-slack-notification.md を参照"
+            exit 1
+          fi
+          echo "✅ Slack設定確認完了: チャンネルID = ${{ env.SLACK_CHANNEL_ID }}"
+
       - name: Determine bot type
         id: bot-type
         env:
@@ -67,6 +93,7 @@ jobs:
       - name: Send Slack notification
         uses: slackapi/slack-github-action@v1.26.0
         with:
+          channel-id: ${{ env.SLACK_CHANNEL_ID }}
           payload: |
             {
               "text": "${{ steps.bot-type.outputs.bot_icon }} ${{ steps.bot-type.outputs.bot_name }} commented on ${{ github.event.issue.pull_request && 'PR' || 'Issue' }} #${{ github.event.issue.number }}",
@@ -150,4 +177,4 @@ jobs:
               ]
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
