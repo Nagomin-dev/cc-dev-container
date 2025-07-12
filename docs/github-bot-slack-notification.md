@@ -30,15 +30,51 @@
 
 ## セットアップ手順
 
-### 1. Slack Webhook URLの設定
+### 1. Slack Bot Tokenの設定（推奨）
 
-既存のSlack Webhook URLを使用するか、新規に作成します。
+**重要**: Slack Webhook URLは単一チャンネルにしか送信できません。複数チャンネルへの通知が必要な場合は、Bot Token方式を使用してください。
+
+#### Bot Token方式（複数チャンネル対応）
+
+1. **Slack Appの作成**
+   - [api.slack.com/apps](https://api.slack.com/apps) にアクセス
+   - "Create New App" → "From scratch"を選択
+   - アプリ名とワークスペースを設定
+
+2. **権限の設定**
+   - "OAuth & Permissions"ページへ移動
+   - "Scopes" → "Bot Token Scopes"で以下を追加：
+     - `chat:write` - メッセージ送信権限
+     - `chat:write.public` - パブリックチャンネルへの送信権限
+
+3. **アプリのインストール**
+   - "Install to Workspace"をクリック
+   - 権限を確認して承認
+
+4. **Bot Tokenの取得**
+   - "OAuth & Permissions"ページの"Bot User OAuth Token"をコピー
+   - `xoxb-`で始まるトークン
+
+5. **GitHub Secretsへの登録**
+   ```bash
+   # GitHubリポジトリ > Settings > Secrets and variables > Actions
+   # "New repository secret"から SLACK_BOT_TOKEN を追加
+   ```
+
+6. **チャンネルIDの確認**
+   - Slackでチャンネルを右クリック → "View channel details"
+   - 最下部の"Channel ID"をコピー（例: C1234567890）
+
+#### Webhook URL方式（単一チャンネルのみ）
+
+既存のWebhook URLを使用する場合：
 
 ```bash
-# 既存のWebhook URLがある場合は、それをGitHub Secretsに追加
 # GitHubリポジトリ > Settings > Secrets and variables > Actions
 # "New repository secret"から SLACK_WEBHOOK_URL を追加
 ```
+
+**注意**: Webhook URL方式では、チャンネル振り分け機能は動作しません。
 
 ### 2. ワークフローファイルの選択
 
@@ -47,7 +83,22 @@
 - 基本的な通知のみ必要な場合 - `bot-comment-notify.yml`
 - 高度なフィルタリングが必要な場合 - `bot-comment-notify-advanced.yml`
 
-### 3. ワークフローの有効化
+### 3. ワークフローの設定
+
+#### 基本版（bot-comment-notify.yml）
+
+Bot Token方式の場合、GitHub Variablesで`SLACK_CHANNEL_ID`を設定：
+
+```yaml
+# GitHubリポジトリ > Settings > Secrets and variables > Actions > Variables
+SLACK_CHANNEL_ID=C1234567890  # 通知先のチャンネルID
+```
+
+#### 高度版（bot-comment-notify-advanced.yml）
+
+複数チャンネルへの振り分けが必要な場合は、各チャンネルのIDをVariablesに設定（上記参照）。
+
+### 4. ワークフローの有効化
 
 選択したワークフローファイルを `.github/workflows/` ディレクトリに配置すると、自動的に有効になります。
 
@@ -99,14 +150,30 @@ env:
 
 高重要度のコメントには`@channel`メンションが自動的に追加されます。
 
-### チャンネル振り分け
+### チャンネル振り分け（Bot Token方式のみ）
 
-以下の条件でSlackチャンネルが自動選択されます。
+Bot Token方式を使用している場合、以下の条件でSlackチャンネルが自動選択されます。
 
-- mainブランチへのPR: `#production-alerts`
-- `urgent`ラベル付き: `#urgent-notifications`
-- `security`ラベル付き: `#security-alerts`
-- デフォルト: `#github-notifications`
+#### GitHub Variablesの設定
+
+チャンネルIDはGitHub Repository VariablesまたはOrganization Variablesで管理することを推奨します：
+
+```bash
+# GitHubリポジトリ > Settings > Secrets and variables > Actions > Variables
+SLACK_CHANNEL_GITHUB_NOTIFICATIONS=C1234567890      # デフォルトチャンネル
+SLACK_CHANNEL_PRODUCTION_ALERTS=C0987654321         # mainブランチ用
+SLACK_CHANNEL_URGENT_NOTIFICATIONS=C1122334455      # urgentラベル用
+SLACK_CHANNEL_SECURITY_ALERTS=C5566778899           # securityラベル用
+```
+
+#### 振り分けルール
+
+- mainブランチへのPR: `SLACK_CHANNEL_PRODUCTION_ALERTS`
+- `urgent`ラベル付き: `SLACK_CHANNEL_URGENT_NOTIFICATIONS`
+- `security`ラベル付き: `SLACK_CHANNEL_SECURITY_ALERTS`
+- デフォルト: `SLACK_CHANNEL_GITHUB_NOTIFICATIONS`
+
+**注意**: Webhook URL方式では、この機能は利用できません。
 
 ## ボット判定ロジック
 
@@ -159,13 +226,25 @@ elif [[ "${{ github.event.comment.user.login }}" =~ "your-bot-name" ]]; then
    - コメント投稿者のユーザー名を確認
    - Claude Code Actionの場合、コメント内容にキーワードが含まれているか確認
 
-3. **Webhook URLのテスト**
+3. **Bot Token方式の場合**
+   - Bot Tokenが正しく設定されているか確認（`xoxb-`で始まる）
+   - Slackアプリがワークスペースにインストールされているか確認
+   - 必要な権限（chat:write, chat:write.public）が付与されているか確認
+   - チャンネルIDが正しいか確認（チャンネル名ではなくID）
+
+4. **Webhook URL方式の場合**
 
    ```bash
    curl -X POST -H 'Content-type: application/json' \
      --data '{"text":"Test from GitHub Actions"}' \
      YOUR_WEBHOOK_URL
    ```
+
+### チャンネル振り分けが機能しない場合
+
+- **Bot Token方式を使用しているか確認** - Webhook URL方式では機能しません
+- **GitHub Variablesが正しく設定されているか確認**
+- **チャンネルIDの形式を確認**（C1234567890のような形式）
 
 ### 特定のコメントだけ通知したい場合
 
@@ -187,3 +266,4 @@ elif [[ "${{ github.event.comment.user.login }}" =~ "your-bot-name" ]]; then
 - `.github/workflows/bot-comment-notify.yml` - 基本的な通知ワークフロー
 - `.github/workflows/bot-comment-notify-advanced.yml` - 高度な通知ワークフロー
 - `scripts/claude-slack-notification.sh` - ローカルClaude Code用のSlack通知スクリプト
+- `docs/slack-app-setup.md` - Slack App設定の詳細ガイド

@@ -1,5 +1,11 @@
 name: Advanced Bot Comment Notification
 
+# このワークフローはSlack Bot Tokenを使用して複数チャンネルへの通知を実現します
+# 必要なセットアップ:
+# 1. Slack Appを作成し、chat:write, chat:write.publicスコープを付与
+# 2. Bot User OAuth TokenをGitHub Secretsに SLACK_BOT_TOKEN として保存
+# 3. チャンネルIDを確認（例: C1234567890）
+
 on:
   issue_comment:
     types: [created]
@@ -178,24 +184,25 @@ jobs:
         run: |
           set -euo pipefail
           # ブランチやラベルに基づいてチャンネルを決定
-          # デフォルトチャンネル
-          CHANNEL="#github-notifications"
+          # Bot Token方式ではチャンネルIDを使用（環境変数で管理することを推奨）
+          # デフォルトチャンネルID（例: C1234567890）
+          CHANNEL="${SLACK_CHANNEL_GITHUB_NOTIFICATIONS:-C1234567890}"
 
           # PRの場合、ベースブランチをjqで取得
           if [[ -n "${{ github.event.issue.pull_request.url || '' }}" ]]; then
             # GITHUB_EVENT_PATHからベースブランチ情報を取得
             BASE_REF=$(jq -r '.issue.pull_request.base.ref // empty' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "")
             if [[ "$BASE_REF" == "main" ]]; then
-              CHANNEL="#production-alerts"
+              CHANNEL="${{ vars.SLACK_CHANNEL_PRODUCTION_ALERTS || 'C0987654321' }}"
             fi
           fi
 
           # ラベルの確認（jqを使用）
           LABELS=$(jq -r '.issue.labels[]?.name // empty' "$GITHUB_EVENT_PATH" 2>/dev/null | tr '\n' ' ' || echo "")
           if [[ "$LABELS" =~ "urgent" ]]; then
-            CHANNEL="#urgent-notifications"
+            CHANNEL="${{ vars.SLACK_CHANNEL_URGENT_NOTIFICATIONS || 'C1122334455' }}"
           elif [[ "$LABELS" =~ "security" ]]; then
-            CHANNEL="#security-alerts"
+            CHANNEL="${{ vars.SLACK_CHANNEL_SECURITY_ALERTS || 'C5566778899' }}"
           fi
 
           echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
@@ -204,8 +211,8 @@ jobs:
         if: steps.should-notify.outputs.should_notify == 'true'
         uses: slackapi/slack-github-action@v1.26.0
         with:
-          # channel-idパラメータでチャンネルを指定可能（オプション）
-          # channel-id: ${{ steps.slack-channel.outputs.channel }}
+          # Bot Token方式でチャンネルを動的に指定
+          channel-id: ${{ steps.slack-channel.outputs.channel }}
           payload: |
             {
               "text": "${{ steps.comment-analysis.outputs.importance_icon }} ${{ steps.bot-info.outputs.bot_icon }} ${{ steps.bot-info.outputs.bot_name }} commented on ${{ github.event.issue.pull_request && 'PR' || 'Issue' }} #${{ github.event.issue.number }} ${{ steps.comment-analysis.outputs.mention }}",
@@ -302,11 +309,11 @@ jobs:
               "attachments": [
                 {
                   "color": "${{ steps.bot-info.outputs.bot_color }}",
-                  "footer": "GitHub Bot Comment Notifier | ${{ steps.slack-channel.outputs.channel }}",
+                  "footer": "GitHub Bot Comment Notifier",
                   "footer_icon": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
                   "ts": "${{ github.event.comment.created_at }}"
                 }
               ]
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

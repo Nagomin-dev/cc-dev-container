@@ -1,5 +1,11 @@
 name: Bot Comment Notification
 
+# このワークフローはSlack Bot Tokenを使用して通知を送信します
+# Webhook URLバージョンから移行する場合:
+# 1. Slack Appを作成し、chat:write, chat:write.publicスコープを付与
+# 2. Bot User OAuth TokenをGitHub Secretsに SLACK_BOT_TOKEN として保存
+# 3. 環境変数でチャンネルIDを設定（SLACK_CHANNEL_ID）
+
 on:
   issue_comment:
     types: [created]
@@ -8,6 +14,10 @@ permissions:
   contents: read
   issues: read
   pull-requests: read
+
+env:
+  # デフォルトのSlackチャンネルID（環境変数またはGitHub Variables で上書き可能）
+  SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID || 'C1234567890' }}
 
 jobs:
   notify-slack:
@@ -67,6 +77,7 @@ jobs:
       - name: Send Slack notification
         uses: slackapi/slack-github-action@v1.26.0
         with:
+          channel-id: ${{ env.SLACK_CHANNEL_ID }}
           payload: |
             {
               "text": "${{ steps.bot-type.outputs.bot_icon }} ${{ steps.bot-type.outputs.bot_name }} commented on ${{ github.event.issue.pull_request && 'PR' || 'Issue' }} #${{ github.event.issue.number }}",
@@ -150,4 +161,4 @@ jobs:
               ]
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
