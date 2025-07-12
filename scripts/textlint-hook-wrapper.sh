@@ -5,6 +5,12 @@
 
 set -euo pipefail
 
+# jqコマンドの存在確認
+command -v jq >/dev/null 2>&1 || {
+  echo '{"continue":true,"suppressOutput":false,"error":"jq not installed"}'
+  exit 1
+}
+
 # スクリプトのディレクトリを取得
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

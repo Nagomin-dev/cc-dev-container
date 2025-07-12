@@ -39,6 +39,12 @@ debug_log() {
     fi
 }
 
+# jqコマンドの存在確認
+command -v jq >/dev/null 2>&1 || {
+  echo '{"continue":true,"suppressOutput":false,"error":"jq not installed"}'
+  exit 1
+}
+
 # Webhook URLが設定されていない場合はエラー
 if [ -z "$WEBHOOK_URL" ]; then
     echo '{"continue":true,"suppressOutput":false,"error":"SLACK_WEBHOOK_URL environment variable not set"}'
