@@ -1,0 +1,304 @@
+name: Advanced Bot Comment Notification
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+env:
+  # フィルタリング設定（環境変数で管理）
+  NOTIFY_KEYWORDS: "review,approved,changes requested,vulnerability,error,warning,bug,security"
+  IGNORE_KEYWORDS: "WIP,draft,test"
+  NOTIFY_CODERABBIT: "true"
+  NOTIFY_CLAUDE: "true"
+  NOTIFY_OTHER_BOTS: "false"
+
+jobs:
+  notify-slack:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check if should notify
+        id: should-notify
+        run: |
+          # デフォルトは通知しない
+          echo "should_notify=false" >> $GITHUB_OUTPUT
+
+          # ボットかどうかチェック
+          USER_LOGIN="${{ github.event.comment.user.login }}"
+          IS_BOT=false
+          BOT_TYPE=""
+
+          # CodeRabbitチェック
+          if [[ "$USER_LOGIN" =~ coderabbit ]]; then
+            IS_BOT=true
+            BOT_TYPE="coderabbit"
+            if [[ "${{ env.NOTIFY_CODERABBIT }}" == "true" ]]; then
+              echo "should_notify=true" >> $GITHUB_OUTPUT
+            fi
+          # GitHub Actions bot（Claude Code Action含む）チェック
+          elif [[ "$USER_LOGIN" == "github-actions[bot]" ]]; then
+            IS_BOT=true
+            # Claude Code Actionかどうかをコメント内容から判定
+            COMMENT_BODY="${{ github.event.comment.body }}"
+            if echo "$COMMENT_BODY" | grep -qiE "(Claude|Anthropic|claude-code-action|Claude Code)"; then
+              BOT_TYPE="claude"
+              if [[ "${{ env.NOTIFY_CLAUDE }}" == "true" ]]; then
+                echo "should_notify=true" >> $GITHUB_OUTPUT
+              fi
+            else
+              BOT_TYPE="other"
+              if [[ "${{ env.NOTIFY_OTHER_BOTS }}" == "true" ]]; then
+                echo "should_notify=true" >> $GITHUB_OUTPUT
+              fi
+            fi
+          fi
+
+          echo "is_bot=$IS_BOT" >> $GITHUB_OUTPUT
+          echo "bot_type=$BOT_TYPE" >> $GITHUB_OUTPUT
+
+          # ボットでない場合は処理終了
+          if [[ "$IS_BOT" != "true" ]]; then
+            exit 0
+          fi
+
+          # キーワードフィルタリング
+          COMMENT_BODY="${{ github.event.comment.body }}"
+
+          # 無視キーワードチェック
+          if [[ -n "${{ env.IGNORE_KEYWORDS }}" ]]; then
+            IFS=',' read -ra IGNORE_ARRAY <<< "${{ env.IGNORE_KEYWORDS }}"
+            for keyword in "${IGNORE_ARRAY[@]}"; do
+              if echo "$COMMENT_BODY" | grep -qi "$keyword"; then
+                echo "should_notify=false" >> $GITHUB_OUTPUT
+                echo "Ignored due to keyword: $keyword"
+                exit 0
+              fi
+            done
+          fi
+
+          # 通知キーワードチェック（指定されている場合）
+          if [[ -n "${{ env.NOTIFY_KEYWORDS }}" ]]; then
+            FOUND_KEYWORD=false
+            IFS=',' read -ra NOTIFY_ARRAY <<< "${{ env.NOTIFY_KEYWORDS }}"
+            for keyword in "${NOTIFY_ARRAY[@]}"; do
+              if echo "$COMMENT_BODY" | grep -qi "$keyword"; then
+                FOUND_KEYWORD=true
+                echo "matched_keyword=$keyword" >> $GITHUB_OUTPUT
+                break
+              fi
+            done
+
+            # キーワードが見つからなかった場合は通知しない
+            if [[ "$FOUND_KEYWORD" != "true" ]]; then
+              echo "should_notify=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Set bot info
+        if: steps.should-notify.outputs.should_notify == 'true'
+        id: bot-info
+        run: |
+          BOT_TYPE="${{ steps.should-notify.outputs.bot_type }}"
+
+          case "$BOT_TYPE" in
+            "coderabbit")
+              echo "bot_name=CodeRabbit" >> $GITHUB_OUTPUT
+              echo "bot_icon=🐰" >> $GITHUB_OUTPUT
+              echo "bot_color=#FF6B6B" >> $GITHUB_OUTPUT
+              ;;
+            "claude")
+              echo "bot_name=Claude Code Action" >> $GITHUB_OUTPUT
+              echo "bot_icon=🤖" >> $GITHUB_OUTPUT
+              echo "bot_color=#6366F1" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "bot_name=GitHub Actions Bot" >> $GITHUB_OUTPUT
+              echo "bot_icon=⚙️" >> $GITHUB_OUTPUT
+              echo "bot_color=#808080" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Analyze comment content
+        if: steps.should-notify.outputs.should_notify == 'true'
+        id: comment-analysis
+        run: |
+          COMMENT_BODY="${{ github.event.comment.body }}"
+
+          # コメントの重要度を判定
+          IMPORTANCE="normal"
+          if echo "$COMMENT_BODY" | grep -qiE "(error|failed|failure|bug|vulnerability|security)"; then
+            IMPORTANCE="high"
+          elif echo "$COMMENT_BODY" | grep -qiE "(approved|lgtm|success|passed)"; then
+            IMPORTANCE="success"
+          elif echo "$COMMENT_BODY" | grep -qiE "(warning|suggestion|consider)"; then
+            IMPORTANCE="warning"
+          fi
+
+          echo "importance=$IMPORTANCE" >> $GITHUB_OUTPUT
+
+          # 重要度に応じた絵文字とメンション設定
+          case "$IMPORTANCE" in
+            "high")
+              echo "importance_icon=🚨" >> $GITHUB_OUTPUT
+              echo "mention=<!channel>" >> $GITHUB_OUTPUT
+              ;;
+            "success")
+              echo "importance_icon=✅" >> $GITHUB_OUTPUT
+              echo "mention=" >> $GITHUB_OUTPUT
+              ;;
+            "warning")
+              echo "importance_icon=⚠️" >> $GITHUB_OUTPUT
+              echo "mention=" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "importance_icon=📝" >> $GITHUB_OUTPUT
+              echo "mention=" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+          # コメントプレビュー作成
+          PREVIEW=$(echo "$COMMENT_BODY" | tr '\n' ' ' | cut -c1-500)
+          if [ ${#COMMENT_BODY} -gt 500 ]; then
+            PREVIEW="${PREVIEW}..."
+          fi
+          echo "preview<<EOF" >> $GITHUB_OUTPUT
+          echo "$PREVIEW" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Set Slack channel
+        if: steps.should-notify.outputs.should_notify == 'true'
+        id: slack-channel
+        run: |
+          # ブランチやラベルに基づいてチャンネルを決定
+          # デフォルトチャンネル
+          CHANNEL="#github-notifications"
+
+          # mainブランチへのPRの場合
+          if [[ "${{ github.event.issue.pull_request }}" != "" ]] && [[ "${{ github.base_ref }}" == "main" ]]; then
+            CHANNEL="#production-alerts"
+          fi
+
+          # 特定のラベルがある場合
+          if [[ "${{ contains(github.event.issue.labels.*.name, 'urgent') }}" == "true" ]]; then
+            CHANNEL="#urgent-notifications"
+          elif [[ "${{ contains(github.event.issue.labels.*.name, 'security') }}" == "true" ]]; then
+            CHANNEL="#security-alerts"
+          fi
+
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+
+      - name: Send Slack notification
+        if: steps.should-notify.outputs.should_notify == 'true'
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          # channel-idパラメータでチャンネルを指定可能（オプション）
+          # channel-id: ${{ steps.slack-channel.outputs.channel }}
+          payload: |
+            {
+              "text": "${{ steps.comment-analysis.outputs.importance_icon }} ${{ steps.bot-info.outputs.bot_icon }} ${{ steps.bot-info.outputs.bot_name }} commented on ${{ github.event.issue.pull_request && 'PR' || 'Issue' }} #${{ github.event.issue.number }} ${{ steps.comment-analysis.outputs.mention }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*${{ steps.comment-analysis.outputs.importance_icon }} ${{ steps.bot-info.outputs.bot_icon }} ${{ steps.bot-info.outputs.bot_name }} がコメントしました* ${{ steps.comment-analysis.outputs.mention }}"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "重要度: ${{ steps.comment-analysis.outputs.importance }} | キーワード: ${{ steps.should-notify.outputs.matched_keyword || 'なし' }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*リポジトリ:*\n`${{ github.repository }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*${{ github.event.issue.pull_request && 'プルリクエスト' || 'イシュー' }}:*\n<${{ github.event.issue.html_url }}|#${{ github.event.issue.number }}>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*タイトル:*\n${{ github.event.issue.title }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*作成者:*\n${{ github.event.issue.user.login }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*ボット:*\n`${{ github.event.comment.user.login }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*日時:*\n<!date^${{ github.event.comment.created_at }}^{date_short_pretty} {time}|${{ github.event.comment.created_at }}>"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*コメント内容:*\n```${{ steps.comment-analysis.outputs.preview }}```"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "コメントを見る 👀",
+                        "emoji": true
+                      },
+                      "url": "${{ github.event.comment.html_url }}",
+                      "style": "primary"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "${{ github.event.issue.pull_request && 'PR' || 'Issue' }}を開く 📄",
+                        "emoji": true
+                      },
+                      "url": "${{ github.event.issue.html_url }}"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "リポジトリ 📁",
+                        "emoji": true
+                      },
+                      "url": "${{ github.event.repository.html_url }}"
+                    }
+                  ]
+                }
+              ],
+              "attachments": [
+                {
+                  "color": "${{ steps.bot-info.outputs.bot_color }}",
+                  "footer": "GitHub Bot Comment Notifier | ${{ steps.slack-channel.outputs.channel }}",
+                  "footer_icon": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+                  "ts": "${{ github.event.comment.created_at }}"
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
