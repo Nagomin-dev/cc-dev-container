@@ -230,6 +230,7 @@ echo $SLACK_WEBHOOK_URL
 ### 自動永続化ボリューム
 
 以下のボリュームが自動的にマウントされ、拡張機能が永続化されます：
+
 - VSCode: `vscode-extensions` ボリューム（`.vscode-server/extensions`）
 - Cursor: `cursor-extensions` ボリューム（`.cursor-server/extensions`）
 - Windsurf: `windsurf-extensions` ボリューム（`.windsurf-server/extensions`）

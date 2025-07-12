@@ -1,0 +1,113 @@
+name: VSCode Fork Extensions Test
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/extension-test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/extension-test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Validate devcontainer.json
+      run: |
+        echo "📋 Validating devcontainer.json..."
+
+        # Check if devcontainer.json exists and is valid JSON
+        if [ -f .devcontainer/devcontainer.json ]; then
+          jq . .devcontainer/devcontainer.json > /dev/null || exit 1
+          echo "✅ devcontainer.json is valid"
+        else
+          echo "❌ devcontainer.json not found"
+          exit 1
+        fi
+
+    - name: Check extension installation script
+      run: |
+        echo "🔍 Checking extension installation script..."
+
+        # Check if install-extensions.sh exists and is executable
+        if [ -f .devcontainer/install-extensions.sh ]; then
+          if [ -x .devcontainer/install-extensions.sh ]; then
+            echo "✅ install-extensions.sh is executable"
+          else
+            echo "❌ install-extensions.sh is not executable"
+            exit 1
+          fi
+        else
+          echo "❌ install-extensions.sh not found"
+          exit 1
+        fi
+
+    - name: Validate volume mounts
+      run: |
+        echo "🔍 Validating volume mounts..."
+
+        # Check for required volume mounts in devcontainer.json
+        REQUIRED_VOLUMES=("vscode-extensions" "cursor-extensions" "windsurf-extensions")
+
+        for volume in "${REQUIRED_VOLUMES[@]}"; do
+          if jq -e ".mounts[] | select(contains(\"$volume\"))" .devcontainer/devcontainer.json > /dev/null; then
+            echo "✅ Volume mount for $volume found"
+          else
+            echo "❌ Volume mount for $volume not found"
+            exit 1
+          fi
+        done
+
+    - name: Check extensions directory
+      run: |
+        echo "📁 Checking extensions directory..."
+
+        # Check if extensions directory exists
+        if [ -d .devcontainer/extensions ]; then
+          echo "✅ Extensions directory exists"
+
+          # Check for README.md
+          if [ -f .devcontainer/extensions/README.md ]; then
+            echo "✅ Extensions README.md exists"
+          else
+            echo "⚠️  Extensions README.md not found"
+          fi
+        else
+          echo "❌ Extensions directory not found"
+          exit 1
+        fi
+
+    - name: Test extension installation script (dry run)
+      run: |
+        echo "🧪 Testing extension installation script..."
+
+        # Create a mock VSIX file for testing
+        mkdir -p .devcontainer/extensions
+        touch .devcontainer/extensions/test-extension.vsix
+
+        # Modify the script to just echo commands instead of executing
+        sed 's/code --install-extension/echo "Would install:"/g' .devcontainer/install-extensions.sh > test-install.sh
+        sed -i 's/cursor --install-extension/echo "Would install:"/g' test-install.sh
+        sed -i 's/windsurf --install-extension/echo "Would install:"/g' test-install.sh
+
+        chmod +x test-install.sh
+        ./test-install.sh
+
+        rm -f test-install.sh .devcontainer/extensions/test-extension.vsix
+
+    - name: Generate test report
+      if: always()
+      run: |
+        echo "📊 Test Summary"
+        echo "=============="
+        echo "Test status: ${{ job.status }}"
+        echo ""
+        echo "VSCode fork extensions persistence feature validated"
