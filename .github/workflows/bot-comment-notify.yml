@@ -21,11 +21,14 @@ jobs:
     steps:
       - name: Determine bot type
         id: bot-type
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
+          set -euo pipefail
           # ボットのタイプを判定
           if [[ "${{ github.event.comment.user.login }}" == "github-actions[bot]" ]]; then
             # コメント内容からClaude Code Actionかどうかを判定
-            if echo "${{ github.event.comment.body }}" | grep -qiE "(Claude|Anthropic|claude-code-action)"; then
+            if echo "$COMMENT_BODY" | grep -qiE "(Claude|Anthropic|claude-code-action)"; then
               echo "bot_name=Claude Code Action" >> $GITHUB_OUTPUT
               echo "bot_icon=🤖" >> $GITHUB_OUTPUT
               echo "bot_color=#6366F1" >> $GITHUB_OUTPUT
@@ -46,10 +49,12 @@ jobs:
 
       - name: Extract comment preview
         id: comment-preview
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
+          set -euo pipefail
           # コメントの最初の500文字を抽出（Slack表示用）
-          COMMENT_BODY="${{ github.event.comment.body }}"
-          # 改行を \n に変換し、500文字に制限
+          # 改行を空白に変換し、500文字に制限
           PREVIEW=$(echo "$COMMENT_BODY" | tr '\n' ' ' | cut -c1-500)
           if [ ${#COMMENT_BODY} -gt 500 ]; then
             PREVIEW="${PREVIEW}..."

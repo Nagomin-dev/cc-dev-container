@@ -24,7 +24,10 @@ jobs:
     steps:
       - name: Check if should notify
         id: should-notify
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
+          set -euo pipefail
           # デフォルトは通知しない
           echo "should_notify=false" >> $GITHUB_OUTPUT
 
@@ -44,7 +47,6 @@ jobs:
           elif [[ "$USER_LOGIN" == "github-actions[bot]" ]]; then
             IS_BOT=true
             # Claude Code Actionかどうかをコメント内容から判定
-            COMMENT_BODY="${{ github.event.comment.body }}"
             if echo "$COMMENT_BODY" | grep -qiE "(Claude|Anthropic|claude-code-action|Claude Code)"; then
               BOT_TYPE="claude"
               if [[ "${{ env.NOTIFY_CLAUDE }}" == "true" ]]; then
@@ -67,8 +69,6 @@ jobs:
           fi
 
           # キーワードフィルタリング
-          COMMENT_BODY="${{ github.event.comment.body }}"
-
           # 無視キーワードチェック
           if [[ -n "${{ env.IGNORE_KEYWORDS }}" ]]; then
             IFS=',' read -ra IGNORE_ARRAY <<< "${{ env.IGNORE_KEYWORDS }}"
@@ -103,6 +103,7 @@ jobs:
         if: steps.should-notify.outputs.should_notify == 'true'
         id: bot-info
         run: |
+          set -euo pipefail
           BOT_TYPE="${{ steps.should-notify.outputs.bot_type }}"
 
           case "$BOT_TYPE" in
@@ -126,9 +127,10 @@ jobs:
       - name: Analyze comment content
         if: steps.should-notify.outputs.should_notify == 'true'
         id: comment-analysis
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          COMMENT_BODY="${{ github.event.comment.body }}"
-
+          set -euo pipefail
           # コメントの重要度を判定
           IMPORTANCE="normal"
           if echo "$COMMENT_BODY" | grep -qiE "(error|failed|failure|bug|vulnerability|security)"; then
@@ -174,19 +176,25 @@ jobs:
         if: steps.should-notify.outputs.should_notify == 'true'
         id: slack-channel
         run: |
+          set -euo pipefail
           # ブランチやラベルに基づいてチャンネルを決定
           # デフォルトチャンネル
           CHANNEL="#github-notifications"
 
-          # mainブランチへのPRの場合
-          if [[ "${{ github.event.issue.pull_request }}" != "" ]] && [[ "${{ github.base_ref }}" == "main" ]]; then
-            CHANNEL="#production-alerts"
+          # PRの場合、ベースブランチをjqで取得
+          if [[ -n "${{ github.event.issue.pull_request.url || '' }}" ]]; then
+            # GITHUB_EVENT_PATHからベースブランチ情報を取得
+            BASE_REF=$(jq -r '.issue.pull_request.base.ref // empty' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "")
+            if [[ "$BASE_REF" == "main" ]]; then
+              CHANNEL="#production-alerts"
+            fi
           fi
 
-          # 特定のラベルがある場合
-          if [[ "${{ contains(github.event.issue.labels.*.name, 'urgent') }}" == "true" ]]; then
+          # ラベルの確認（jqを使用）
+          LABELS=$(jq -r '.issue.labels[]?.name // empty' "$GITHUB_EVENT_PATH" 2>/dev/null | tr '\n' ' ' || echo "")
+          if [[ "$LABELS" =~ "urgent" ]]; then
             CHANNEL="#urgent-notifications"
-          elif [[ "${{ contains(github.event.issue.labels.*.name, 'security') }}" == "true" ]]; then
+          elif [[ "$LABELS" =~ "security" ]]; then
             CHANNEL="#security-alerts"
           fi
 
