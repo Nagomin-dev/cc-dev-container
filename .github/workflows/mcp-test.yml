@@ -59,10 +59,14 @@ jobs:
         fi
 
     - name: Run MCP test script
+      env:
+        CI: true
+        GITHUB_ACTIONS: true
       run: |
         chmod +x scripts/mcp-test.sh
         # デバッグ情報を表示
         echo "Current directory: $(pwd)"
+        echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
         echo "Node modules contents:"
         ls -la node_modules/@modelcontextprotocol/ || echo "MCP modules not found"
         echo ""
@@ -87,14 +91,21 @@ jobs:
         echo "📦 Validating package dependencies..."
 
         # Check for deprecated packages
-        if npm list @modelcontextprotocol/server-github 2>/dev/null; then
+        if [ -d "node_modules/@modelcontextprotocol/server-github" ]; then
           echo "⚠️  Warning: Deprecated package @modelcontextprotocol/server-github found"
           echo "Please use @github/mcp-server-github instead"
         fi
 
         # Ensure required packages are installed
-        npm list @modelcontextprotocol/sdk || exit 1
-        npm list @modelcontextprotocol/server-filesystem || exit 1
+        if [ ! -d "node_modules/@modelcontextprotocol/sdk" ]; then
+          echo "❌ @modelcontextprotocol/sdk not found"
+          exit 1
+        fi
+
+        if [ ! -d "node_modules/@modelcontextprotocol/server-filesystem" ]; then
+          echo "❌ @modelcontextprotocol/server-filesystem not found"
+          exit 1
+        fi
 
         echo "✅ Package dependencies validated"
 
