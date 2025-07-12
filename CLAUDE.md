@@ -27,9 +27,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 │   ├── init-firewall.sh      # セキュリティのためのファイアウォール設定
 │   ├── install-extensions.sh # VSCodeフォーク拡張機能インストールスクリプト
 │   └── extensions/           # VSCodeフォーク拡張機能のVSIXファイル格納ディレクトリ
+├── .github/workflows/        # GitHub Actionsワークフロー
+│   ├── bot-comment-notify.yml # ボットコメント通知（基本版）
+│   ├── bot-comment-notify-advanced.yml # ボットコメント通知（高度版）
+│   ├── extension-test.yml    # VSCodeフォーク拡張機能テスト
+│   └── mcp-test.yml          # MCPサーバーテスト
 ├── docs/                     # ドキュメント
 │   ├── textlint-setup.md     # textlintセットアップガイド
-│   └── mcp-setup.md          # MCPサーバーセットアップガイド
+│   ├── mcp-setup.md          # MCPサーバーセットアップガイド
+│   └── github-bot-slack-notification.md # GitHub Bot Slack通知ガイド
 ├── scripts/
 │   ├── claude-slack-notification.sh  # Slack通知スクリプト
 │   ├── textlint-check.sh     # AI文章チェックスクリプト
@@ -114,6 +120,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `SLACK_NOTIFICATION_DEBUG` | デバッグモード | `0` (無効) |
 | `SLACK_NOTIFICATION_IGNORE_TASK_COMPLETION` | タスク完了通知を無視 | `0` (無効) |
 | `SLACK_NOTIFICATION_MAX_LOG_SIZE` | ログファイルの最大サイズ（バイト） | `10485760` (10MB) |
+
+## GitHub Bot Slack通知機能
+
+このプロジェクトには、CodeRabbitやClaude Code ActionなどのボットがGitHubでコメントした際に、自動的にSlackに通知を送信するGitHub Actionsワークフローが含まれています。
+
+### 利用可能なワークフロー
+
+1. **基本版** (`bot-comment-notify.yml`)
+   - シンプルな実装でCodeRabbitとClaude Code Actionのコメントを検知
+   - ボットタイプに応じたアイコンと色分け
+   - コメントプレビュー機能
+
+2. **高度版** (`bot-comment-notify-advanced.yml`)
+   - キーワードベースのフィルタリング
+   - コメント重要度の自動判定
+   - チャンネル自動振り分け
+   - カスタマイズ可能な通知設定
+
+### セットアップ
+
+1. GitHub Secretsに`SLACK_WEBHOOK_URL`を設定（既存のものを使用可能）
+2. 必要に応じてワークフローファイル内の環境変数を調整
+
+### 主な機能
+
+- **ボット自動検出**: CodeRabbit、Claude Code Action、その他のGitHub Actionsボットを識別
+- **リアルタイム通知**: PRやIssueへのコメント時に即座にSlack通知
+- **フィルタリング**: キーワードベースで必要な通知のみを送信
+- **重要度判定**: エラー、セキュリティ問題などを自動的に高重要度として扱い
+
+詳細な設定方法とカスタマイズオプションについては、[docs/github-bot-slack-notification.md](docs/github-bot-slack-notification.md) を参照してください。
 
 ## textlint AI文章検出機能
 
