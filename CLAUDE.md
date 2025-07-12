@@ -35,7 +35,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ├── docs/                     # ドキュメント
 │   ├── textlint-setup.md     # textlintセットアップガイド
 │   ├── mcp-setup.md          # MCPサーバーセットアップガイド
-│   └── github-bot-slack-notification.md # GitHub Bot Slack通知ガイド
+│   ├── github-bot-slack-notification.md # GitHub Bot Slack通知ガイド
+│   └── claude-github-actions-setup.md # Claude GitHub Actionsセットアップガイド
 ├── scripts/
 │   ├── claude-slack-notification.sh  # Slack通知スクリプト
 │   ├── textlint-check.sh     # AI文章チェックスクリプト
