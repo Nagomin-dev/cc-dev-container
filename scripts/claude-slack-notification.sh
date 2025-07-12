@@ -71,8 +71,8 @@ debug_log "Script called with EVENT_TYPE: $EVENT_TYPE, MESSAGE: $MESSAGE"
 
 # JSON入力を試みる（Hooksから呼ばれた場合）
 JSON_INPUT=""
-if read -t 0; then
-    # stdinにデータがある場合、JSON入力を読み取る
+if [ ! -t 0 ]; then
+    # stdinがターミナルでない場合（パイプやリダイレクトからの入力）
     debug_log "Reading JSON from stdin"
     JSON_INPUT=$(cat)
     if [ -n "$JSON_INPUT" ]; then
