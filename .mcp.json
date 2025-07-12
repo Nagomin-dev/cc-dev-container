@@ -9,6 +9,14 @@
         "disallowedOperations": ["write", "delete", "rename"],
         "allowSymlinks": false
       }
+    },
+    "git": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-git"],
+      "config": {
+        "repositoryPath": "/workspace"
+      }
     }
   }
 }

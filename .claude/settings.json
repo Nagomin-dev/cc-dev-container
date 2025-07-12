@@ -36,26 +36,14 @@
         ]
       }
     ],
-    "Write": [
+    "PostToolUse": [
       {
-        "matcher": ".*\\.md$",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "/workspace/scripts/textlint-check.sh",
-            "description": "MarkdownファイルのAI文章パターンをチェック"
-          }
-        ]
-      }
-    ],
-    "Edit": [
-      {
-        "matcher": ".*\\.md$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/workspace/scripts/textlint-check.sh",
-            "description": "MarkdownファイルのAI文章パターンをチェック"
+            "command": "/workspace/scripts/textlint-hook-wrapper.sh",
+            "description": "Markdownファイル編集時のAI文章チェック"
           }
         ]
       }

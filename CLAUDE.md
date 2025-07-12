@@ -91,6 +91,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **重要**: Webhook URLは `.claude/settings.local.json` に環境変数として保存されており、Gitには含まれません。
 
+### Slack通知スクリプトの機能
+
+`claude-slack-notification.sh`は以下の機能を提供します：
+
+1. **JSON入力処理** - Claude Code HooksからのJSON入力を自動的に処理
+2. **詳細な通知情報** - イベントタイプ、時刻、セッションIDを表示
+3. **アイドル通知のフィルタリング** - 60秒アイドル通知を自動的に無視（`SLACK_NOTIFICATION_IGNORE_IDLE=0`で無効化可能）
+4. **通知のカスタマイズ** - メッセージ内容に基づいて異なるアイコンと色を使用
+   - 許可要求: ⚠️ 黄色
+   - アイドル: ⏳ グレー
+   - その他: 🔔 黄色
+5. **デバッグモード** - `SLACK_NOTIFICATION_DEBUG=1`で詳細なログを記録
+6. **ログローテーション** - デバッグログが指定サイズを超えると自動的にローテーション
+
+### 環境変数
+
+| 変数名 | 説明 | デフォルト値 |
+|--------|------|-------------|
+| `SLACK_WEBHOOK_URL` | SlackのWebhook URL | 必須 |
+| `SLACK_NOTIFICATION_IGNORE_IDLE` | アイドル通知を無視 | `1` (有効) |
+| `SLACK_NOTIFICATION_DEBUG` | デバッグモード | `0` (無効) |
+| `SLACK_NOTIFICATION_IGNORE_TASK_COMPLETION` | タスク完了通知を無視 | `0` (無効) |
+| `SLACK_NOTIFICATION_MAX_LOG_SIZE` | ログファイルの最大サイズ（バイト） | `10485760` (10MB) |
+
 ## textlint AI文章検出機能
 
 このプロジェクトには、AIが生成したような文章パターンを検出・修正する `textlint-rule-preset-ai-writing` が統合されています。
