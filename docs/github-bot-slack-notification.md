@@ -30,6 +30,15 @@
 
 ## セットアップ手順
 
+### ⚠️ 重要: 必須設定について
+
+**このワークフローを動作させるには、以下の設定が必須です：**
+
+1. **Slack認証情報の設定** (Bot TokenまたはWebhook URL)
+2. **チャンネルIDの設定** (Bot Token方式の場合)
+
+設定が不完全な場合、ワークフローは明確なエラーメッセージと共に失敗します。
+
 ### 1. Slack Bot Tokenの設定（推奨）
 
 **重要**: Slack Webhook URLは単一チャンネルにしか送信できません。複数チャンネルへの通知が必要な場合は、Bot Token方式を使用してください。
@@ -87,16 +96,47 @@
 
 #### 基本版（bot-comment-notify.yml）
 
+**必須設定：**
+
 Bot Token方式の場合、GitHub Variablesで`SLACK_CHANNEL_ID`を設定：
 
-```yaml
+```bash
 # GitHubリポジトリ > Settings > Secrets and variables > Actions > Variables
-SLACK_CHANNEL_ID=C1234567890  # 通知先のチャンネルID
+# 【必須】通知先のチャンネルID（例: C1234567890）
+SLACK_CHANNEL_ID=C1234567890
 ```
+
+**設定チェック：**
+- ワークフロー実行時に設定が正しいかを自動チェック
+- 設定が不完全な場合は詳細なエラーメッセージを表示
 
 #### 高度版（bot-comment-notify-advanced.yml）
 
-複数チャンネルへの振り分けが必要な場合は、各チャンネルのIDをVariablesに設定（上記参照）。
+**必須設定：**
+
+```bash
+# GitHubリポジトリ > Settings > Secrets and variables > Actions > Variables
+# 【必須】デフォルト通知チャンネル
+SLACK_CHANNEL_GITHUB_NOTIFICATIONS=C1234567890
+```
+
+**任意設定（チャンネル振り分け用）：**
+
+```bash
+# 【任意】mainブランチPR用チャンネル
+SLACK_CHANNEL_PRODUCTION_ALERTS=C0987654321
+
+# 【任意】urgentラベル用チャンネル  
+SLACK_CHANNEL_URGENT_NOTIFICATIONS=C1122334455
+
+# 【任意】securityラベル用チャンネル
+SLACK_CHANNEL_SECURITY_ALERTS=C5566778899
+```
+
+**設定チェック：**
+- 必須設定が不完全な場合は詳細なエラーメッセージを表示
+- 任意設定が未設定の場合はデフォルトチャンネルを使用（警告表示）
+- GitHub API呼び出し失敗時の適切なフォールバック処理
 
 ### 4. ワークフローの有効化
 
@@ -158,13 +198,22 @@ Bot Token方式を使用している場合、以下の条件でSlackチャンネ
 
 チャンネルIDはGitHub Repository VariablesまたはOrganization Variablesで管理することを推奨します：
 
+**設定手順：**
+1. GitHub リポジトリの Settings > Secrets and variables > Actions に移動
+2. Variables タブで "New repository variable" をクリック
+3. 以下の変数を設定：
+
 ```bash
-# GitHubリポジトリ > Settings > Secrets and variables > Actions > Variables
-SLACK_CHANNEL_GITHUB_NOTIFICATIONS=C1234567890      # デフォルトチャンネル
-SLACK_CHANNEL_PRODUCTION_ALERTS=C0987654321         # mainブランチ用
-SLACK_CHANNEL_URGENT_NOTIFICATIONS=C1122334455      # urgentラベル用
+# 【必須】デフォルト通知チャンネル
+SLACK_CHANNEL_GITHUB_NOTIFICATIONS=C1234567890
+
+# 【任意】特定条件用チャンネル（未設定時はデフォルトチャンネルを使用）
+SLACK_CHANNEL_PRODUCTION_ALERTS=C0987654321         # mainブランチPR用
+SLACK_CHANNEL_URGENT_NOTIFICATIONS=C1122334455      # urgentラベル用  
 SLACK_CHANNEL_SECURITY_ALERTS=C5566778899           # securityラベル用
 ```
+
+**重要：** フォールバック用のダミーチャンネルIDは削除されました。必須設定が未設定の場合、ワークフローは明確なエラーメッセージと共に失敗します。
 
 #### 振り分けルール
 
@@ -215,36 +264,76 @@ elif [[ "${{ github.event.comment.user.login }}" =~ "your-bot-name" ]]; then
 
 ### 通知が届かない場合
 
-1. **GitHub Secretsの確認**
+#### 1. **設定エラーの確認**
 
-   ```bash
-   # ワークフローログでSecretが設定されているか確認
-   # Settings > Actions > 該当のワークフロー実行 > ログを確認
-   ```
+新しいワークフローでは設定不完全時に詳細なエラーメッセージが表示されます：
 
-2. **ボット判定の確認**
-   - コメント投稿者のユーザー名を確認
-   - Claude Code Actionの場合、コメント内容にキーワードが含まれているか確認
+```
+❌ エラー: SLACK_CHANNEL_ID が設定されていません
+📋 セットアップ手順:
+1. GitHub リポジトリの Settings > Secrets and variables > Actions に移動
+2. Variables タブで 'New repository variable' をクリック
+3. Name: SLACK_CHANNEL_ID, Value: 実際のSlackチャンネルID を入力
+4. 詳細は docs/github-bot-slack-notification.md を参照
+```
 
-3. **Bot Token方式の場合**
-   - Bot Tokenが正しく設定されているか確認（`xoxb-`で始まる）
-   - Slackアプリがワークスペースにインストールされているか確認
-   - 必要な権限（chat:write, chat:write.public）が付与されているか確認
-   - チャンネルIDが正しいか確認（チャンネル名ではなくID）
+**対処法：**
+- GitHub Actions の実行ログでエラーメッセージを確認
+- 指示に従って必須設定を追加
 
-4. **Webhook URL方式の場合**
+#### 2. **GitHub Secretsの確認**
 
-   ```bash
-   curl -X POST -H 'Content-type: application/json' \
-     --data '{"text":"Test from GitHub Actions"}' \
-     YOUR_WEBHOOK_URL
-   ```
+```bash
+# ワークフローログでSecretが設定されているか確認
+# Settings > Actions > 該当のワークフロー実行 > ログを確認
+```
+
+#### 3. **ボット判定の確認**
+- コメント投稿者のユーザー名を確認
+- Claude Code Actionの場合、コメント内容にキーワードが含まれているか確認
+
+#### 4. **Bot Token方式の場合**
+- Bot Tokenが正しく設定されているか確認（`xoxb-`で始まる）
+- Slackアプリがワークスペースにインストールされているか確認
+- 必要な権限（chat:write, chat:write.public）が付与されているか確認
+- チャンネルIDが正しいか確認（チャンネル名ではなくID）
+
+#### 5. **Webhook URL方式の場合**
+
+```bash
+curl -X POST -H 'Content-type: application/json' \
+  --data '{"text":"Test from GitHub Actions"}' \
+  YOUR_WEBHOOK_URL
+```
 
 ### チャンネル振り分けが機能しない場合
 
 - **Bot Token方式を使用しているか確認** - Webhook URL方式では機能しません
 - **GitHub Variablesが正しく設定されているか確認**
 - **チャンネルIDの形式を確認**（C1234567890のような形式）
+
+### GitHub API関連のエラー
+
+高度版ワークフローでGitHub API呼び出しが失敗する場合：
+
+```
+❌ GitHub API呼び出しに失敗しました
+⚠️  デフォルトチャンネルを使用します
+```
+
+または
+
+```
+❌ GitHub API エラー (HTTP 403)
+⚠️  デフォルトチャンネルを使用します
+```
+
+**原因と対処法：**
+- **レート制限**: GitHub API のレート制限に達した場合（通常は自動回復）
+- **権限不足**: ワークフローの`GITHUB_TOKEN`権限が不足
+- **一時的な障害**: GitHub側の一時的な問題（自動的にフォールバック）
+
+**対処不要：** エラーが発生してもデフォルトチャンネルで通知は送信されます。
 
 ### 特定のコメントだけ通知したい場合
 

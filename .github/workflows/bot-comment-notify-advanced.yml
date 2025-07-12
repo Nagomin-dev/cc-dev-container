@@ -184,35 +184,79 @@ jobs:
         run: |
           set -euo pipefail
           # ブランチやラベルに基づいてチャンネルを決定
-          # Bot Token方式ではチャンネルIDを使用（環境変数で管理することを推奨）
-          # デフォルトチャンネルID（例: C1234567890）
-          CHANNEL="${{ vars.SLACK_CHANNEL_GITHUB_NOTIFICATIONS || 'C1234567890' }}"
+          # Bot Token方式ではチャンネルIDを使用（GitHub Variablesで管理）
+          CHANNEL="${{ vars.SLACK_CHANNEL_GITHUB_NOTIFICATIONS }}"
+
+          # チャンネルIDの検証
+          if [[ -z "$CHANNEL" ]]; then
+            echo "❌ エラー: SLACK_CHANNEL_GITHUB_NOTIFICATIONS が設定されていません"
+            echo "📋 GitHub Variables で以下を設定してください:"
+            echo "  - SLACK_CHANNEL_GITHUB_NOTIFICATIONS (通常の通知用)"
+            echo "  - SLACK_CHANNEL_PRODUCTION_ALERTS (本番環境向け通知用、オプション)"
+            exit 1
+          fi
 
           # PRの場合、GitHub APIを使用してベースブランチを取得
           if [[ -n "${{ github.event.issue.pull_request.url || '' }}" ]]; then
             PR_URL="${{ github.event.issue.pull_request.url }}"
             echo "Fetching PR details from: $PR_URL"
 
-            # GitHub APIでPR情報を取得
-            PR_DATA=$(curl -s -H "Authorization: Bearer ${{ github.token }}" \
-                           -H "Accept: application/vnd.github.v3+json" \
-                           "$PR_URL")
+            # GitHub APIでPR情報を取得（エラーハンドリング付き）
+            if ! PR_DATA=$(curl -s -w "%{http_code}" -H "Authorization: Bearer ${{ github.token }}" \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                "$PR_URL"); then
+              echo "❌ GitHub API呼び出しに失敗しました"
+              echo "⚠️  デフォルトチャンネルを使用します"
+            else
+              HTTP_CODE="${PR_DATA: -3}"
+              PR_DATA="${PR_DATA%???}"
 
-            # ベースブランチを抽出
-            BASE_REF=$(echo "$PR_DATA" | jq -r '.base.ref // empty')
-            echo "Base branch: $BASE_REF"
+              if [[ "$HTTP_CODE" != "200" ]]; then
+                echo "❌ GitHub API エラー (HTTP $HTTP_CODE)"
+                echo "⚠️  デフォルトチャンネルを使用します"
+              else
+                # ベースブランチを抽出（jqエラーハンドリング付き）
+                if BASE_REF=$(echo "$PR_DATA" | jq -r '.base.ref // empty' 2>/dev/null) && [[ -n "$BASE_REF" ]]; then
+                  echo "✅ Base branch detected: $BASE_REF"
+                else
+                  echo "⚠️  ベースブランチの取得に失敗、デフォルトチャンネルを使用"
+                  BASE_REF=""
+                fi
+              fi
+            fi
 
             if [[ "$BASE_REF" == "main" ]]; then
-              CHANNEL="${{ vars.SLACK_CHANNEL_PRODUCTION_ALERTS || 'C0987654321' }}"
+              PROD_CHANNEL="${{ vars.SLACK_CHANNEL_PRODUCTION_ALERTS }}"
+              if [[ -n "$PROD_CHANNEL" ]]; then
+                CHANNEL="$PROD_CHANNEL"
+                echo "📢 Production alert channel selected: $CHANNEL"
+              else
+                echo "⚠️  警告: SLACK_CHANNEL_PRODUCTION_ALERTS が未設定のため、デフォルトチャンネルを使用"
+              fi
             fi
           fi
 
           # ラベルの確認（jqを使用）
           LABELS=$(jq -r '.issue.labels[]?.name // empty' "$GITHUB_EVENT_PATH" 2>/dev/null | tr '\n' ' ' || echo "")
+          echo "Labels detected: $LABELS"
+
+          # ラベルベースのチャンネル振り分け
           if [[ "$LABELS" =~ "urgent" ]]; then
-            CHANNEL="${{ vars.SLACK_CHANNEL_URGENT_NOTIFICATIONS || 'C1122334455' }}"
+            URGENT_CHANNEL="${{ vars.SLACK_CHANNEL_URGENT_NOTIFICATIONS }}"
+            if [[ -n "$URGENT_CHANNEL" ]]; then
+              CHANNEL="$URGENT_CHANNEL"
+              echo "🚨 Urgent channel selected: $CHANNEL"
+            else
+              echo "⚠️  SLACK_CHANNEL_URGENT_NOTIFICATIONS が未設定のため、デフォルトチャンネルを使用"
+            fi
           elif [[ "$LABELS" =~ "security" ]]; then
-            CHANNEL="${{ vars.SLACK_CHANNEL_SECURITY_ALERTS || 'C5566778899' }}"
+            SECURITY_CHANNEL="${{ vars.SLACK_CHANNEL_SECURITY_ALERTS }}"
+            if [[ -n "$SECURITY_CHANNEL" ]]; then
+              CHANNEL="$SECURITY_CHANNEL"
+              echo "🔒 Security channel selected: $CHANNEL"
+            else
+              echo "⚠️  SLACK_CHANNEL_SECURITY_ALERTS が未設定のため、デフォルトチャンネルを使用"
+            fi
           fi
 
           echo "channel=$CHANNEL" >> $GITHUB_OUTPUT

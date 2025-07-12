@@ -16,8 +16,10 @@ permissions:
   pull-requests: read
 
 env:
-  # デフォルトのSlackチャンネルID（環境変数またはGitHub Variables で上書き可能）
-  SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID || 'C1234567890' }}
+  # SlackチャンネルID（GitHub Variablesでの設定が必須）
+  # セットアップ手順: Settings > Secrets and variables > Actions > Variables タブ
+  # SLACK_CHANNEL_ID を実際のチャンネルIDに設定してください
+  SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
 
 jobs:
   notify-slack:
@@ -29,6 +31,20 @@ jobs:
        github.event.comment.user.login == 'github-actions[bot]')
 
     steps:
+      - name: Validate Slack configuration
+        run: |
+          set -euo pipefail
+          if [[ -z "${{ env.SLACK_CHANNEL_ID }}" ]]; then
+            echo "❌ エラー: SLACK_CHANNEL_ID が設定されていません"
+            echo "📋 セットアップ手順:"
+            echo "1. GitHub リポジトリの Settings > Secrets and variables > Actions に移動"
+            echo "2. Variables タブで 'New repository variable' をクリック"
+            echo "3. Name: SLACK_CHANNEL_ID, Value: 実際のSlackチャンネルID を入力"
+            echo "4. 詳細は docs/github-bot-slack-notification.md を参照"
+            exit 1
+          fi
+          echo "✅ Slack設定確認完了: チャンネルID = ${{ env.SLACK_CHANNEL_ID }}"
+
       - name: Determine bot type
         id: bot-type
         env:
