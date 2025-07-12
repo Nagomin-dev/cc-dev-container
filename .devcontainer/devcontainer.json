@@ -40,7 +40,10 @@
   "mounts": [
     "source=claude-code-bashhistory,target=/commandhistory,type=volume",
     "source=claude-code-config,target=/home/node/.claude,type=volume",
-    "source=claude-code-mcp,target=/home/node/.mcp-cache,type=volume"
+    "source=claude-code-mcp,target=/home/node/.mcp-cache,type=volume",
+    "source=vscode-extensions,target=/home/node/.vscode-server/extensions,type=volume",
+    "source=cursor-extensions,target=/home/node/.cursor-server/extensions,type=volume",
+    "source=windsurf-extensions,target=/home/node/.windsurf-server/extensions,type=volume"
   ],
   "remoteEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
@@ -50,7 +53,7 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "sudo /usr/local/bin/init-firewall.sh && chmod +x /workspace/.devcontainer/setup-branch-protection.sh && /workspace/.devcontainer/setup-branch-protection.sh && npm install && chmod +x /workspace/scripts/mcp-setup.sh && /workspace/scripts/mcp-setup.sh",
+  "postCreateCommand": "sudo /usr/local/bin/init-firewall.sh && chmod +x /workspace/.devcontainer/setup-branch-protection.sh && /workspace/.devcontainer/setup-branch-protection.sh && npm install && chmod +x /workspace/scripts/mcp-setup.sh && /workspace/scripts/mcp-setup.sh && chmod +x /workspace/.devcontainer/install-extensions.sh && /workspace/.devcontainer/install-extensions.sh",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
