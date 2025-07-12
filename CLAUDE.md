@@ -35,7 +35,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ├── docs/                     # ドキュメント
 │   ├── textlint-setup.md     # textlintセットアップガイド
 │   ├── mcp-setup.md          # MCPサーバーセットアップガイド
-│   └── github-bot-slack-notification.md # GitHub Bot Slack通知ガイド
+│   ├── github-bot-slack-notification.md # GitHub Bot Slack通知ガイド
+│   └── claude-github-actions-setup.md # Claude GitHub Actionsセットアップガイド
 ├── scripts/
 │   ├── claude-slack-notification.sh  # Slack通知スクリプト
 │   ├── textlint-check.sh     # AI文章チェックスクリプト
@@ -69,7 +70,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `mcp-setup.sh`: MCPサーバーの初期設定スクリプト
   - `mcp-test.sh`: MCPサーバーの動作確認スクリプト
 
-- **MCP設定** 
+- **MCP設定**
   - `.mcp.json`: チーム共有のMCPサーバー設定
   - `.mcp.local.json`: 個人的なMCPサーバー設定（APIキー等）
 
