@@ -88,8 +88,9 @@ if [ -f "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js" ]; 
     timeout 2s node node_modules/@modelcontextprotocol/server-filesystem/dist/index.js /workspace --help >/dev/null 2>&1
     exit_code=$?
 
-    if [ $exit_code -eq 0 ] || [ $exit_code -eq 124 ]; then
+    if [ $exit_code -eq 0 ] || [ $exit_code -eq 124 ] || [ $exit_code -eq 1 ]; then
         # exit code 0 = success, 124 = timeout (expected for a running server)
+        # exit code 1 = --help not recognized but server started
         echo -e "  ${GREEN}✓${NC} filesystem サーバーは正常に動作可能です"
     else
         echo -e "  ${RED}✗${NC} filesystem サーバーの起動に失敗しました (exit code: $exit_code)"

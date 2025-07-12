@@ -37,7 +37,13 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm ci
+      run: |
+        # npm ciがpackage-lock.jsonを必要とするため、存在しない場合はnpm installを使用
+        if [ -f "package-lock.json" ]; then
+          npm ci
+        else
+          npm install
+        fi
 
     - name: Validate MCP configuration
       run: |
@@ -55,6 +61,12 @@ jobs:
     - name: Run MCP test script
       run: |
         chmod +x scripts/mcp-test.sh
+        # デバッグ情報を表示
+        echo "Current directory: $(pwd)"
+        echo "Node modules contents:"
+        ls -la node_modules/@modelcontextprotocol/ || echo "MCP modules not found"
+        echo ""
+        # テストスクリプトを実行
         ./scripts/mcp-test.sh
 
     - name: Test MCP server startup
