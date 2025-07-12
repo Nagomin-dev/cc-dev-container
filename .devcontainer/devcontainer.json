@@ -39,16 +39,18 @@
   "remoteUser": "node",
   "mounts": [
     "source=claude-code-bashhistory,target=/commandhistory,type=volume",
-    "source=claude-code-config,target=/home/node/.claude,type=volume"
+    "source=claude-code-config,target=/home/node/.claude,type=volume",
+    "source=claude-code-mcp,target=/home/node/.mcp-cache,type=volume"
   ],
   "remoteEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CLAUDE_CONFIG_DIR": "/home/node/.claude",
-    "POWERLEVEL9K_DISABLE_GITSTATUS": "true"
+    "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
+    "MCP_CACHE_DIR": "/home/node/.mcp-cache"
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "sudo /usr/local/bin/init-firewall.sh && chmod +x /workspace/.devcontainer/setup-branch-protection.sh && /workspace/.devcontainer/setup-branch-protection.sh",
+  "postCreateCommand": "sudo /usr/local/bin/init-firewall.sh && chmod +x /workspace/.devcontainer/setup-branch-protection.sh && /workspace/.devcontainer/setup-branch-protection.sh && npm install && chmod +x /workspace/scripts/mcp-setup.sh && /workspace/scripts/mcp-setup.sh",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"

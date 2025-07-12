@@ -26,12 +26,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 │   ├── Dockerfile            # Node.js 20ベースの開発環境
 │   └── init-firewall.sh      # セキュリティのためのファイアウォール設定
 ├── docs/                     # ドキュメント
-│   └── textlint-setup.md     # textlintセットアップガイド
+│   ├── textlint-setup.md     # textlintセットアップガイド
+│   └── mcp-setup.md          # MCPサーバーセットアップガイド
 ├── scripts/
 │   ├── claude-slack-notification.sh  # Slack通知スクリプト
 │   ├── textlint-check.sh     # AI文章チェックスクリプト
-│   └── textlint-fix.sh       # AI文章自動修正スクリプト
+│   ├── textlint-fix.sh       # AI文章自動修正スクリプト
+│   ├── mcp-setup.sh          # MCPサーバー初期設定スクリプト
+│   └── mcp-test.sh           # MCPサーバー動作確認スクリプト
 ├── .gitignore                # Git除外設定
+├── .mcp.json                 # MCPサーバー共有設定
+├── .mcp.local.json           # MCPサーバー個人設定（Gitで無視）
 ├── .textlintrc.json          # textlint設定
 ├── CLAUDE.md                 # このファイル
 ├── claude-slack-setup.md     # Slack通知セットアップガイド
@@ -53,6 +58,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `claude-slack-notification.sh`: Slack通知を送信するスクリプト
   - `textlint-check.sh`: AIっぽい文章パターンをチェックするスクリプト
   - `textlint-fix.sh`: AIっぽい文章パターンを自動修正するスクリプト
+  - `mcp-setup.sh`: MCPサーバーの初期設定スクリプト
+  - `mcp-test.sh`: MCPサーバーの動作確認スクリプト
+
+- **MCP設定** 
+  - `.mcp.json`: チーム共有のMCPサーバー設定
+  - `.mcp.local.json`: 個人的なMCPサーバー設定（APIキー等）
 
 ### セキュリティ設計
 
@@ -110,6 +121,58 @@ npm run lint:md:fix
 
 詳細なセットアップガイドは [docs/textlint-setup.md](docs/textlint-setup.md) を参照してください。
 
+## Model Context Protocol (MCP) サーバー
+
+このプロジェクトには、Claude CodeがMCPサーバーを介して様々なツールやデータソースにアクセスできるよう、MCP統合が含まれています。
+
+### 設定済みMCPサーバー
+
+1. **filesystem** - ファイルシステムアクセス（読み取り専用）
+   - `/workspace`ディレクトリへの安全なアクセス
+   - 書き込み・削除・リネーム操作は無効化
+
+2. **git** - Gitリポジトリ操作
+   - 現在のプロジェクトのGit情報へのアクセス
+   - コミット履歴、ブランチ、差分の確認
+
+3. **github** (オプション) - GitHub API統合
+   - `.mcp.local.json`で設定が必要
+   - Issue、PR、リポジトリ情報へのアクセス
+
+### MCPサーバーの使用方法
+
+```bash
+# MCPサーバーの一覧表示
+claude mcp list
+
+# 新しいMCPサーバーの追加
+claude mcp add
+
+# MCPサーバーの動作確認
+./scripts/mcp-test.sh
+```
+
+### カスタムMCPサーバーの追加
+
+`.mcp.local.json`を編集して、プロジェクト固有のMCPサーバーを追加できます：
+
+```json
+{
+  "mcpServers": {
+    "custom-server": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["path/to/your/server.js"],
+      "config": {
+        // サーバー固有の設定
+      }
+    }
+  }
+}
+```
+
+詳細は [docs/mcp-setup.md](docs/mcp-setup.md) を参照してください。
+
 ## カスタムスラッシュコマンド
 
 以下のカスタムコマンドが利用可能です：
@@ -165,6 +228,8 @@ echo $SLACK_WEBHOOK_URL
 3. 設定とbash履歴は永続化ボリュームに保存されます
 4. Slack Webhook URLは環境変数として管理され、Gitリポジトリには含まれません
 5. `.claude/settings.local.json` は `.gitignore` に含まれており、個人設定を安全に保存できます
+6. `.mcp.local.json` も `.gitignore` に含まれており、APIキーなどの秘密情報を安全に保存できます
+7. MCPサーバーはコンテナ起動時に自動的に設定されます
 
 ## セキュリティベストプラクティス
 
